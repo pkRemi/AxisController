@@ -40,13 +40,6 @@ int16_t main(void)
 
     /* Initialize IO ports and peripherals */
     InitApp();
-    while(1)
-    {
-        _LATD0 = 0;
-        __delay32(30000);
-        _LATD0 = 1;
-        __delay32(30000);
-    }
     initSerial();
     InitI2C();
     /* I2C control variables */
