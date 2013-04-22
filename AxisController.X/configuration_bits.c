@@ -22,7 +22,7 @@
 
 //#if 0
 
-_FOSC(PRI & XT & CSW_FSCM_OFF); /* Primary osc External PLL x4 Clock switching and monitoring off */
+_FOSC(PRI & XT_PLL4 & CSW_FSCM_OFF); /* Primary osc External PLL x4 Clock switching and monitoring off */
 _FBORPOR(PWRT_OFF & BORV27 & PBOR_OFF & MCLR_EN); /* Ext MCLR, no brownout */
 _FWDT(WDT_OFF); /* Turns off watchdog timer */
 //_ICD(ICS_PGD1); /* Selects debug channel channel */
