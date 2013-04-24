@@ -32,6 +32,8 @@ unsigned char TemperatureRAW[2] = {11,22};
 float TemperatureC = 11.11;
 unsigned char accel[6];
 unsigned char gyro[6];
+unsigned int iaccel;
+unsigned char rawsensor[14];
 
 /******************************************************************************/
 /* Main Program                                                               */
@@ -76,10 +78,10 @@ int16_t main(void)
 //        serStringN = sprintf(serString, "Sensor reading: %d \n\r", Data);
         //TemperatureC = (TemperatureRAW[1]+TemperatureRAW[0]*255)/340+36.53;
         /* The following sprintf command takes 18.744ms or 187440 instructions!!! */
-        serStringN = sprintf(serString, "Sensor: %02X%02X Accel: %02X%02X %02X%02X %02X%02X Gyro: %02X%02X %02X%02X %02X%02X\n\r",
+        serStringN = sprintf(serString, "Sensor: %02X%02X Accel: %02X%02X %02X%02X %02X%02X Gyro: %02X%02X %02X%02X %02X%02X %04X\n\r",
                 TemperatureRAW[0], TemperatureRAW[1],
                 accel[0], accel[1], accel[2], accel[3], accel[4], accel[5],
-                gyro[0], gyro[1], gyro[2], gyro[3], gyro[4], gyro[5]);
+                gyro[0], gyro[1], gyro[2], gyro[3], gyro[4], gyro[5], iaccel);
         _LATD0 = 1;
 
         //U2TXREG = Data; // Transmit one character
@@ -105,21 +107,23 @@ void calcdelay(void)
 }
 void readSensorData(void)
 {
-        LDByteReadI2C(ControlByte, 0x41, &TemperatureRAW[0], 1);
-        LDByteReadI2C(ControlByte, 0x42, &TemperatureRAW[1], 1);
-        LDByteReadI2C(ControlByte, 0x3B, &accel[0], 1);
-        LDByteReadI2C(ControlByte, 0x3C, &accel[1], 1);
-        LDByteReadI2C(ControlByte, 0x3D, &accel[2], 1);
-        LDByteReadI2C(ControlByte, 0x3E, &accel[3], 1);
-        LDByteReadI2C(ControlByte, 0x3F, &accel[4], 1);
-        LDByteReadI2C(ControlByte, 0x40, &accel[5], 1);
-        LDByteReadI2C(ControlByte, 0x43, &gyro[0], 1);
-        LDByteReadI2C(ControlByte, 0x44, &gyro[1], 1);
-        LDByteReadI2C(ControlByte, 0x45, &gyro[2], 1);
-        LDByteReadI2C(ControlByte, 0x46, &gyro[3], 1);
-        LDByteReadI2C(ControlByte, 0x47, &gyro[4], 1);
-        LDByteReadI2C(ControlByte, 0x48, &gyro[5], 1);
-
+//        LDByteReadI2C(ControlByte, 0x41, &TemperatureRAW[0], 1);
+//        LDByteReadI2C(ControlByte, 0x42, &TemperatureRAW[1], 1);
+//        LDByteReadI2C(ControlByte, 0x3B, &accel[0], 1);
+//        LDByteReadI2C(ControlByte, 0x3C, &accel[1], 1);
+//        LDByteReadI2C(ControlByte, 0x3D, &accel[2], 1);
+//        LDByteReadI2C(ControlByte, 0x3E, &accel[3], 1);
+//        LDByteReadI2C(ControlByte, 0x3F, &accel[4], 1);
+//        LDByteReadI2C(ControlByte, 0x40, &accel[5], 1);
+//        LDByteReadI2C(ControlByte, 0x43, &gyro[0], 1);
+//        LDByteReadI2C(ControlByte, 0x44, &gyro[1], 1);
+//        LDByteReadI2C(ControlByte, 0x45, &gyro[2], 1);
+//        LDByteReadI2C(ControlByte, 0x46, &gyro[3], 1);
+//        LDByteReadI2C(ControlByte, 0x47, &gyro[4], 1);
+//        LDByteReadI2C(ControlByte, 0x48, &gyro[5], 1);
+//        iaccel = accel[0] << 8;
+//        iaccel = iaccel | accel[1];
+    LDSequentialReadI2C(ControlByte, 0x3B, rawsensor,14);
         //I2C Commands
         //LDByteWriteI2C(ControlByte, LowAdd, Data);
         //HDByteWriteI2C(ControlByte, HighAdd, LowAdd, Data);
