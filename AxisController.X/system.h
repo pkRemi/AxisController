@@ -17,3 +17,5 @@ go here. */
 
 void ConfigureOscillator(void); /* Handles clock switching/osc initialization */
 
+void calcdelay(void); /* Temporary function to create sine motion of motor    */
+void readSensorData(void); /*Temporary function to read I2C sensor data       */

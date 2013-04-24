@@ -36,7 +36,8 @@ void initSerial(void)
     U2MODEbits.STSEL = 0;               // 1 Stop bit
     U2MODEbits.PDSEL = 0;               // No Parity, 8 data bits
     U2MODEbits.ABAUD = 0;               // Auto-Baud Disabled
-    U2BRG = 64;                     // BAUD Rate Setting for 9600
+//    U2BRG = 64;                     // BAUD Rate Setting for 9600
+    U2BRG = 31;                     // BAUD Rate Setting for 19200
     U2STAbits.UTXISEL = 0;             // Interrupt after one TX Character is transmitted
     IEC0bits.U1TXIE = 0;                // Enable UART TX Interrupt
     U2MODEbits.UARTEN = 1;              // Enable UART

@@ -53,7 +53,7 @@ unsigned int InitI2C(void)
 
 	//I2CBRG = 0x004f;
         I2CCONbits.I2CEN = 1;               // Enable I2C controller
-        I2CBRG = 90;                        // Set I2C Clock to 100kHz at 10 MIPS
+        I2CBRG = 23;                        // Set I2C Clock to 400kHz at 10 MIPS 90 for 100kHz
 	//Now we will initialise the I2C peripheral for Master Mode, No Slew Rate
 	//Control, and leave the peripheral switched off.
 	// SCLREL: SCL Release Control bit (when operating as I2C Slave),
