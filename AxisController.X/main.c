@@ -34,7 +34,12 @@ int accel[3];
 int gyro[3];
 //unsigned int iaccel;
 unsigned char rawsensor[14];
-
+// Test for averaging
+int n = 0;
+float average = 0;
+// Test of stepper motor speed control.
+int axdelay = 4000;
+int axdir = 0;
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/
@@ -52,9 +57,11 @@ int16_t main(void)
     __delay32(1500000);
     ControlByte = 0x00D0; // mpu6050 address
     InitMPU6050(ControlByte);
+    SetupInterrupts();
     unsigned int i;
     int serStringN = 13;
     delaytime = 1;
+
     while(1)
     {
 //        _LATD0 = 0;
@@ -67,18 +74,19 @@ int16_t main(void)
             U2TXREG = serString[i];
         }
         __delay32(1000); // Without this delay, the I2C command acts funny...
-//        _LATD0 = 1;
-        readSensorData();
+         readSensorData();
+        _LATD0 = 1;
+       GyroZaverage();
         _LATD0 = 0;
-
+        Pcontroller();
 //        serStringN = sprintf(serString, "Sensor reading: %d \n\r", Data);
         TemperatureC = (TemperatureRAW)/340+36.53;
         /* The following sprintf command takes 18.744ms or 187440 instructions!!! */
 //        serStringN = sprintf(serString, "Sensor: %04X Accel: %04X %04X %04X Gyro: %04X %04X %04X\n\r",
-        serStringN = sprintf(serString, "Sensor: %3.0f Accel: %05d %05d %05d Gyro: %05d %05d %05d\n\r",
+        serStringN = sprintf(serString, "Sensor: %3.0f Accel: %05d %05d %05d Gyro: %05d %05d %05d AZ: %f\n\r",
                 TemperatureC,
                 accel[0], accel[1], accel[2],
-                gyro[0], gyro[1], gyro[2]);
+                gyro[0], gyro[1], gyro[2], average);
 
         //U2TXREG = Data; // Transmit one character
 
@@ -90,7 +98,34 @@ int16_t main(void)
     }
 
 }
+void Pcontroller(void)
+{
+    // Setpoint, measured value, output - speed
+    int axset = 200;
+    float speed;
+    speed = (axset - accel[0]);
+    Speed2Delay(speed);
+}
+void Speed2Delay(float speed)
+{
+    // Speed is in steps/sec, max is:
+    // 1 rps * 200 step/rev * 32 microstep/step * 2 int/step = 12800
+    // Period = PR1 * prescaler * Tcy = 78 * 64 * 100ns = 2ms
+    float delay = 0;
+    if (fabs(speed) > 12800) // Maximum speed. Avoids overspeed on the motor and potential lockup of the interrupt handler.
+        delay = 17;
+    else if (fabs(speed) < 10) // Minimum speed. Makes sure that the interrupt is run at least 10 times per sec.
+        delay = 21739;
+    else
+        delay = 1/(speed * 0.0000046);
 
+    axdelay = fabs(delay);
+    if (speed >= 0) // Check direction of speed
+        axdir = 1;
+    else
+        axdir = 0;
+
+}
 void calcdelay(void)
 {
     double tau = 6.2831;
@@ -103,23 +138,9 @@ void calcdelay(void)
 }
 void readSensorData(void)
 {
-//        LDByteReadI2C(ControlByte, 0x41, &TemperatureRAW[0], 1);
-//        LDByteReadI2C(ControlByte, 0x42, &TemperatureRAW[1], 1);
-//        LDByteReadI2C(ControlByte, 0x3B, &accel[0], 1);
-//        LDByteReadI2C(ControlByte, 0x3C, &accel[1], 1);
-//        LDByteReadI2C(ControlByte, 0x3D, &accel[2], 1);
-//        LDByteReadI2C(ControlByte, 0x3E, &accel[3], 1);
-//        LDByteReadI2C(ControlByte, 0x3F, &accel[4], 1);
-//        LDByteReadI2C(ControlByte, 0x40, &accel[5], 1);
-//        LDByteReadI2C(ControlByte, 0x43, &gyro[0], 1);
-//        LDByteReadI2C(ControlByte, 0x44, &gyro[1], 1);
-//        LDByteReadI2C(ControlByte, 0x45, &gyro[2], 1);
-//        LDByteReadI2C(ControlByte, 0x46, &gyro[3], 1);
-//        LDByteReadI2C(ControlByte, 0x47, &gyro[4], 1);
-//        LDByteReadI2C(ControlByte, 0x48, &gyro[5], 1);
-//        iaccel = accel[0] << 8;
-//        iaccel = iaccel | accel[1];
-    LDSequentialReadI2C(ControlByte, 0x3B, rawsensor,14);
+
+    LDSequentialReadI2C(ControlByte, 0x3B, rawsensor,14); // Read sensor data
+    // Put sensor data into 16 bit int variables
     int i;
     int ii = 0;
     for (i = 0; i < 3; i++)
@@ -140,11 +161,24 @@ void readSensorData(void)
         gyro[i] = gyro[i] | rawsensor[ii];
         ii++;
     }
-        //I2C Commands
-        //LDByteWriteI2C(ControlByte, LowAdd, Data);
-        //HDByteWriteI2C(ControlByte, HighAdd, LowAdd, Data);
-        //HDPageWriteI2C(ControlByte, HighAdd, LowAdd, PageString);
-        //LDByteReadI2C(ControlByte, LowAdd, &Data, 1);
-        //HDByteReadI2C(ControlByte, HighAdd, LowAdd, &Data, 1);
-        //HDSequentialReadI2C(ControlByte, HighAdd, LowAdd, PageString, PAGESIZE);
+
+}
+void GyroZaverage(void)
+{
+
+      n++; 
+      average = average + ((gyro[2] - average)/n); 
+}
+// Timer 1 interrupt service routine toggles LED on RD1
+void __attribute__((__interrupt__, __auto_psv__)) _T1Interrupt(void)
+{
+
+    // Toggle LED on RD1
+    _LATD1 = 1 - _LATD1;
+    PR1 = axdelay;
+    _LATD3 = axdir;
+    // Clear Timer 1 interrupt flag
+    _T1IF = 0;
+
+
 }

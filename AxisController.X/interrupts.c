@@ -60,7 +60,160 @@
 /* release.                                                                   */
 /*                                                                            */
 /******************************************************************************/
+/* Interrupt Prototypes                                                         */
+/******************************************************************************/
+
+void SetupInterrupts(void);
+
+
+/******************************************************************************/
 /* Interrupt Routines                                                         */
 /******************************************************************************/
 
 /* TODO Add interrupt routine code here. */
+
+void SetupInterrupts(void)
+{
+    // Configure Timer 1.
+    // PR1 and TCKPS are set to call interrupt every 2ms.
+    // Period = PR1 * prescaler * Tcy = 78 * 256 * 100ns = 2ms
+    
+    T1CON = 0;            // Clear Timer 1 configuration
+    T1CONbits.TCKPS = 2;  // Set timer 1 prescaler (0=1:1, 1=1:8, 2=1:64, 3=1:256)
+    PR1 = 78;             // Set Timer 1 period (max value is 65535)
+    _T1IP = 1;            // Set Timer 1 interrupt priority
+    _T1IF = 0;            // Clear Timer 1 interrupt flag
+    _T1IE = 1;            // Enable Timer 1 interrupt
+    T1CONbits.TON = 1;    // Turn on Timer 1
+}
+
+
+///** I N T E R R U P T S ***********************************************/
+//// From SERIAL example(Remi)
+////----------------------------------------------------------------------------
+//// High priority interrupt vector
+//
+//#pragma code InterruptVectorHigh = 0x08
+//void InterruptVectorHigh (void)
+//{
+//  _asm
+//    goto InterruptServiceHigh //jump to interrupt routine
+//  _endasm
+//}
+//
+////----------------------------------------------------------------------------
+//// Low priority interrupt vector
+//
+//#pragma code InterruptVectorLow = 0x18
+//void InterruptVectorLow (void)
+//{
+//  _asm
+//    goto InterruptServiceLow //jump to interrupt routine
+//  _endasm
+//}
+//void Timer0_Init(void)
+//{
+//    // Set up Interrupts for timer
+//    INTCONbits.TMR0IF = 0;          // clear roll-over interrupt flag
+//    INTCON2bits.TMR0IP = 1;         // Timer0 is high priority interrupt
+//    INTCONbits.TMR0IE = 1;          // enable the Timer0 interrupt.
+//    // Set up timer itself
+//    T0CON = 0b00000000;             // prescale 1:4 - about 1 second maximum delay.
+//    TMR0H = 0;                      // clear timer - always write upper byte first
+//    TMR0L = 0;
+//    T0CONbits.TMR0ON = 1;           // start timer
+//}
+//void prompt(void)
+//{
+//	printf("STEPPER ->");
+//}
+//// -------------------- Iterrupt Service Routines --------------------------
+//#pragma interrupt InterruptServiceHigh  // "interrupt" pragma also for high priority
+//void InterruptServiceHigh(void)
+//{
+//    // Check to see what caused the interrupt
+//    // (Necessary when more than 1 interrupt at a priority level)
+//
+//    // Check for INT0 interrupt
+//    if (INTCONbits.INT0IF)
+//    {
+//        // clear (reset) flag
+//        INTCONbits.INT0IF = 0;
+//    }
+//    // Check for Timer0 Interrupt
+//    if  (INTCONbits.TMR0IF)
+//    {
+//        INTCONbits.TMR0IF = 0;          // clear (reset) flag
+//		if (direction == 0)
+//		{
+//			LATA = 0;
+//		}
+//		else if (direction == 1)
+//		{
+//		PatternNr++;
+//		if(PatternNr > 3)
+//			PatternNr = 0;
+//		LATA = PatternLookup[PatternNr];
+//		if (relativeSteps < 65535)
+//		{
+//			relativeSteps--;
+//			if (relativeSteps == 0)
+//				direction = 0;
+//		}
+//		}
+//		else if (direction == 2)
+//		{
+//		PatternNr--;
+//		if(PatternNr > 4)
+//			PatternNr = 3;
+//		LATA = PatternLookup[PatternNr];
+//		if (relativeSteps < 65535)
+//		{
+//			relativeSteps--;
+//			if (relativeSteps == 0)
+//				direction = 0;
+//		}
+//		}
+//		TMR0H = 255;      // MSB from serial input
+//		TMR0L = Speed;                  // LSB = 0
+//	}
+//    // Check for another interrupt, examples:
+//    // if (PIR1bits.TMR1IF)     // Timer 1
+//    // if (PIR1bits.ADIF)       // ADC
+//
+//}  // return from high-priority interrupt
+//
+//#pragma interruptlow InterruptServiceLow// "interruptlow" pragma for low priority
+//void InterruptServiceLow(void)
+//{
+//    // Check to see what caused the interrupt
+//    // (Necessary when more than 1 interrupt at a priority level)
+//
+//    // Check for Timer0 Interrupt
+//    if  (INTCONbits.TMR0IF)
+//    {
+//        INTCONbits.TMR0IF = 0;          // clear (reset) flag
+//
+//    }
+//	if (PIR1bits.RCIF)
+//	{
+//		//unsigned char serialChar;
+//		serInput = RCREG;
+//
+//		if (serInput == 0x0D)
+//		{
+//			printFlag = 1;
+//		}
+//		else
+//		{
+//			if (serInputBufferLoc > 62)
+//				serInputBufferLoc = 62;
+//			serInputBuffer[serInputBufferLoc] = serInput;
+//			serInputBufferLoc++;
+//		}
+//
+//	}
+//    // Check for another interrupt, examples:
+//    // if (PIR1bits.TMR1IF)     // Timer 1
+//    // if (PIR1bits.ADIF)       // ADC
+//}
