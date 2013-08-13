@@ -1,4 +1,4 @@
-This is a general template for the dsPIC30 family of microcontrollers.  It's
+This is a general template for the PIC24 family of microcontrollers.  It's
 purpose is to provide a project shell for users to get started designing their
 own applications.  Final qualification and testing of this project is left to
 the user.
@@ -39,6 +39,9 @@ Make sure that you check the device datasheet to confirm that the interrupt
 you are using is present in the device selected, and check the device .h
 file for the most up to date list of interrupt vector mnemonics.
 
+Note that there are three interrupt stubs in interrupts.c.  One is for PIC24H,
+the other is for PIC24F, and one is for PIC24E.  
+
 STEP 4
 
 Define system parameters such as the system operating frequency in system.h.
@@ -48,10 +51,6 @@ you want a function to determine the reset source of the device to know if you
 need to backup data, do an oscillator switch, enter a low power mode, etc...
 these types of functions may be added to system.c and prototypes can go in
 system.h.
-
-Refer to the oscillator chapter of the device FRM to learn about available
-clock switching options as well as the compiler documentation for information
-about compiler __builtins.  
 
 STEP 5
 
@@ -80,3 +79,14 @@ STEP 8
 
 Document what the project does and include other project information in
 project_information.txt.
+
+KNOWN ISSUES:
+
+With XC16 version 1.10, this message may appear in red during compilation
+with the 24EP128GP202 device configuration:
+
+Memory region auxflash does not exist
+
+It does not appear to be a functional error, but has been logged nonetheless.
+
+The tracking # is CAEDTISS-1012.

@@ -2,11 +2,23 @@
 /* Files to Include                                                           */
 /******************************************************************************/
 
-#include <p30Fxxxx.h>        /* Device header file                            */
-#include <stdint.h>          /* For uint32_t definition                       */
-#include <stdbool.h>         /* For true/false definition                     */
+/* Device header file */
+#if defined(__XC16__)
+    #include <xc.h>
+#elif defined(__C30__)
+    #if defined(__PIC24E__)
+    	#include <p24Exxxx.h>
+    #elif defined (__PIC24F__)||defined (__PIC24FK__)
+	#include <p24Fxxxx.h>
+    #elif defined(__PIC24H__)
+	#include <p24Hxxxx.h>
+    #endif
+#endif
 
-#include "user.h"            /* variables/params used by user.c               */
+#include <stdint.h>          /* For uint32_t definition */
+#include <stdbool.h>         /* For true/false definition */
+
+#include "user.h"            /* variables/params used by user.c */
 
 /******************************************************************************/
 /* User Functions                                                             */
@@ -18,50 +30,122 @@
 
 void InitApp(void)
 {
+    _LATB2 = 0; // RESET STEPPER
+    _LATB4 = 0; // ENABLE STEPPER
     /* Setup analog functionality and port direction */
-    // Configure all four port D pins (RD0, RD1, RD2, RD3)
-    // as digital outputs
-    LATD = 0;
-    TRISD = 0b1111111111110000;
-
-//    ADPCFG = 0x1FF;                  // Set all pins to digital
-
-//    TRISB = 0xFFFE;                     // Set PORT pins RP0 output - rest input
-//    PORTB = 0x01;                       // Set RP0 high
+    TRISA=0b00011;       // Set RA0 and RA1 pins as inputs, rest as ouputs
+    TRISB=0b0000000000000000;       // Set RBx pins as outputs
+    AD1PCFG=0b1111111111111100;     //set RA0 as AN0  and RA1 as AN0 analog input
+    //AD1PCFG = 0xEFFF; // all PORTB = Digital; RB12 = analog
     /* Initialize peripherals */
-}
-void initSerial(void)
-{
-
-    U2MODEbits.STSEL = 0;               // 1 Stop bit
-    U2MODEbits.PDSEL = 0;               // No Parity, 8 data bits
-    U2MODEbits.ABAUD = 0;               // Auto-Baud Disabled
-//    U2BRG = 64;                     // BAUD Rate Setting for 9600
-    U2BRG = 31;                     // BAUD Rate Setting for 19200
-    U2STAbits.UTXISEL = 0;             // Interrupt after one TX Character is transmitted
-    IEC0bits.U1TXIE = 0;                // Enable UART TX Interrupt
-    U2MODEbits.UARTEN = 1;              // Enable UART
-    U2STAbits.UTXEN = 1;                // Enable UART TX
-}
-void IC2Init(void) // Not used
-{
-    I2CCONbits.I2CEN = 1;               // Enable I2C controller
-    I2CBRG = 15;                        // Set I2C Clock to 400kHz at 10 MIPS
+    _LATB2 = 0; // RESET STEPPER
+    _LATB4 = 0; // ENABLE STEPPER
+    __delay32(16000000);
+    _LATB2 = 1; // RESET STEPPER
+    __delay32(16000000);
+    _LATB4 = 1; // ENABLE STEPPER
 
 }
-void InitMPU6050(unsigned char I2Caddr)
+
+void setuptimer1 (void)
 {
-    LDByteWriteI2C(I2Caddr, 0x6B, 0x00); // Wakeup MPU6050
-    /* ACCEL_CONFIG 0x1C selftest and Full Scale Range
-     0b00000000 -> 2g
-     0b00001000 -> 4g
-     0b00010000 -> 8g
-     0b00011000 -> 16g                                                        */
-    LDByteWriteI2C(I2Caddr, 0x1C, 0b00001000); // FSR 4g
-    /* GYRO_CONFIG 0x1B selftest and Full Scale Range
-     0b00000000 -> 250 deg/s
-     0b00001000 -> 500 deg/s
-     0b00010000 -> 1000 deg/s
-     0b00011000 -> 2000 deg/s                                                 */
-    LDByteWriteI2C(I2Caddr, 0x1B, 0b00010000); // FSR 1000 deg/s
+    /* The following code example will enable Timer1 interrupts, load the Timer1
+Period register and start Timer1.
+When a Timer1 period match interrupt occurs, the interrupt service
+routine must clear the Timer1 interrupt status flag in software.
+*/
+T1CON = 0x00; //Stops the Timer1 and reset control reg.
+TMR1 = 0x00; //Clear contents of the timer register
+PR1 = 62500; //Load the Period register with the value 62500
+IPC0bits.T1IP = 0x01; //Setup Timer1 interrupt for desired priority level
+// (This example assigns level 1 priority)
+T1CONbits.TCKPS =3; //Prescale 1:256
+IFS0bits.T1IF = 0; //Clear the Timer1 interrupt status flag
+IEC0bits.T1IE = 1; //Enable Timer1 interrupts
+T1CONbits.TON = 1; //Start Timer1 with prescaler settings at 1:1 and
+
+//clock source set to the internal instruction cycle
+/* Example code for Timer1 ISR*/
+}
+
+void setuptimer2 (void)
+{
+    /* The following code example will enable Timer1 interrupts, load the Timer1
+Period register and start Timer1.
+When a Timer1 period match interrupt occurs, the interrupt service
+routine must clear the Timer1 interrupt status flag in software.
+*/
+T2CON = 0x00; //Stops the Timer1 and reset control reg.
+TMR2 = 0x00; //Clear contents of the timer register
+PR2 = 62500; //Load the Period register with the value 62500
+IPC1bits.T2IP = 0x01; //Setup Timer1 interrupt for desired priority level
+// (This example assigns level 1 priority)
+T2CONbits.TCKPS =3; //Prescale 1:256
+IFS0bits.T2IF = 0; //Clear the Timer2 interrupt status flag
+IEC0bits.T2IE = 1; //Enable Timer2 interrupts
+T2CONbits.TON = 1; //Start Timer2 with prescaler settings at 1:1 and
+
+//clock source set to the internal instruction cycle
+/* Example code for Timer2 ISR*/
+}
+
+void setuptimer3 (void)
+{
+    /* The following code example will enable Timer1 interrupts, load the Timer3
+Period register and start Timer1.
+When a Timer1 period match interrupt occurs, the interrupt service
+routine must clear the Timer1 interrupt status flag in software.
+*/
+T3CON = 0x00; //Stops the Timer3 and reset control reg.
+TMR3 = 0x00; //Clear contents of the timer register
+PR3 = 65000; //Load the Period register with the value 62500
+IPC2bits.T3IP = 0x01; //Setup Timer3 interrupt for desired priority level
+// (This example assigns level 1 priority)
+T3CONbits.TCKPS =3; //Prescale 1:256
+IFS0bits.T3IF = 0; //Clear the Timer3 interrupt status flag
+IEC0bits.T3IE = 1; //Enable Timer3 interrupts
+T3CONbits.TON = 1; //Start Timer3 with prescaler settings at 1:1 and
+
+//clock source set to the internal instruction cycle
+/* Example code for Timer3 ISR*/
+}
+
+//Setup ADC for AN0
+void setupADC (void)
+{
+
+        
+         
+       
+    AD1CON1bits.FORM = 0b00;  //Result as integer
+    AD1CON1bits.SSRC = 0b111; //Automatic conversion
+    AD1CON1bits.ASAM = 0;   //Sampling begins when SAMP bit is set in main.c
+     AD1CON2bits.VCFG = 0b000; //Voltage references as Vdd and Vss
+    AD1CON2bits.CSCNA = 0;  //no input scan form MUX A, change this when adding more ADCs
+    AD1CON2bits.BUFS = 0;   //Registers ADC1BUF0-ADC1BUF7 are used
+    AD1CON2bits.SMPI = 0b0000;    //Interupt after every conversion
+    AD1CON2bits.BUFM = 0;   //Buffer configured as one 16-word buffer (ADC1BUF0 to ADC1BUFF)
+    AD1CON2bits.ALTS = 0;   //no alternation on MUX A and MUX B input multiplexer settings
+
+    AD1CON3bits.ADRC = 0;   //Uses system defined clock
+    AD1CON3bits.SAMC = 0b1111;   //Autosample = 31Tad
+    AD1CON3bits.ADCS = 0b00000010;    //ADC conversion clock period 3xTcy
+    //AD1CSSL = 0b0000000000000000; // Include all channels in scan
+
+    
+
+   IEC0bits.AD1IE  = 0; // disable A/D conversion interrupt
+   IFS0bits.AD1IF = 0; // Clear A/D conversion interrupt
+    
+
+/*
+AD1CON1 = 0x00E0;  // SSRC<2:0> = 111 implies internal counter ends sampling
+// and starts converting.
+AD1CHS  = 0x000C;   // Connect AN12 as S/H input.
+// in this example AN12 is the input
+AD1CSSL = 0;
+AD1CON3 = 0x1F02;  // Sample time = 31Tad, Tad = 3Tcy
+AD1CON2 = 0;
+AD1CON1bits.ADON = 1;  // turn ADC ON
+*/
 }

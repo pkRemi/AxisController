@@ -10,7 +10,8 @@
 
 /* TODO User level functions prototypes (i.e. InitApp) go here */
 
-void InitApp(void); /* I/O and Peripheral Initialization */
-void initSerial(void); /* initialization of serial port UART*/
-void InitMPU6050(unsigned char I2Caddr); /* initialization of MPU6050*/
-
+void InitApp(void);         /* I/O and Peripheral Initialization */
+void setuptimer1 (void);
+void setuptimer2 (void);
+void setuptimer3 (void);
+void setupADC (void);

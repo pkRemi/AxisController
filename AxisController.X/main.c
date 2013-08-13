@@ -2,44 +2,58 @@
 /* Files to Include                                                           */
 /******************************************************************************/
 
-#include <p30Fxxxx.h>      /* Device header file                              */
+/* Device header file */
+#if defined(__XC16__)
+    #include <xc.h>
+#elif defined(__C30__)
+    #if defined(__PIC24E__)
+    	#include <p24Exxxx.h>
+    #elif defined (__PIC24F__)||defined (__PIC24FK__)
+	#include <p24Fxxxx.h>
+    #elif defined(__PIC24H__)
+	#include <p24Hxxxx.h>
+    #endif
+#endif
+
 #include <stdint.h>        /* Includes uint16_t definition                    */
 #include <stdbool.h>       /* Includes true/false definition                  */
-#include <libpic30.h>      /* Includes delay definition                       */
-#include <uart.h>
-#include <stdio.h>         /*For text to serial port (remove if notneeded     */
-//#include <libq.h>           /*For _itoaQ15 integer to string*/
-#include <math.h>          /* For double acos(double)                         */
+#include <libpic30.h>       /*included delay function */
+#include <math.h>
 #include "system.h"        /* System funct/params, like osc/peripheral config */
 #include "user.h"          /* User funct/params, such as InitApp              */
-#include "i2c.h"           /* I2C functions                                   */
+
+
+/******************************************************************************/
+/* Function prototypes                                               */
+/******************************************************************************/
+
+
+/* Default interrupt handler */
+void __attribute__((interrupt,no_auto_psv)) _DefaultInterrupt(void);
+void __attribute__((__interrupt__, __auto_psv__)) _T1Interrupt(void);
+void __attribute__((__interrupt__, __auto_psv__)) _T2Interrupt(void);
+void __attribute__((__interrupt__, __auto_psv__)) _T3Interrupt(void);
 
 /******************************************************************************/
 /* Global Variable Declaration                                                */
 /******************************************************************************/
+long int ADCvalue1=0;
+long int ADCvalue2=0;
+long int xvelocity=0;
+long int yvelocity=0;
+long int mot1speed=0;
+float mot1direction=0;
+long int mot2speed=0;
+float mot2direction=0;
+long int mot3speed=0;
+float mot3direction=0;
+float bbbspeed=0;
+float angle =0;
+signed int int1direction=0;
+signed int int2direction=0;
+signed int int3direction=0;
+/* i.e. uint16_t <variable_name>; */
 
-
-unsigned char ControlByte;		//Control Byte (I2C address)
-//unsigned char HighAdd;			//High Address byte
-//unsigned char LowAdd, HighAdd;	//Low and High Address byte
-//unsigned char Data;				//Data Byte
-//unsigned char Length;			//Length of Bytes to Read
-unsigned char PageString[64];	//Array to hold page data to/from I2C device
-char serString[64] = {'H','e','l','l','o',' ','w','o','r','l','d','!','\n'};	//Array to hold page data to/from I2C device
-double delaytime = 1500000;
-double countpos = 0;
-int TemperatureRAW = 100;
-float TemperatureC = 11.11;
-int accel[3];
-int gyro[3];
-//unsigned int iaccel;
-unsigned char rawsensor[14];
-// Test for averaging
-int n = 0;
-float average = 0;
-// Test of stepper motor speed control.
-int axdelay = 4000;
-int axdir = 0;
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/
@@ -52,133 +66,115 @@ int16_t main(void)
 
     /* Initialize IO ports and peripherals */
     InitApp();
-    initSerial();
-    InitI2C();
-    __delay32(1500000);
-    ControlByte = 0x00D0; // mpu6050 address
-    InitMPU6050(ControlByte);
-    SetupInterrupts();
-    unsigned int i;
-    int serStringN = 13;
-    delaytime = 1;
+    setuptimer1();
+    setuptimer2();
+    setuptimer3();
+    setupADC();
+    /* TODO <INSERT USER APPLICATION CODE HERE> */
 
     while(1)
     {
-//        _LATD0 = 0;
-        __delay32(delaytime);
-//        _LATD0 = 1;
-        /* Send serial data to PC */
-        for (i = 0; i < serStringN; i = i++)
-        {
-            while(!U2STAbits.TRMT);
-            U2TXREG = serString[i];
-        }
-        __delay32(1000); // Without this delay, the I2C command acts funny...
-         readSensorData();
-        _LATD0 = 1;
-       GyroZaverage();
-        _LATD0 = 0;
-        Pcontroller();
-//        serStringN = sprintf(serString, "Sensor reading: %d \n\r", Data);
-        TemperatureC = (TemperatureRAW)/340+36.53;
-        /* The following sprintf command takes 18.744ms or 187440 instructions!!! */
-//        serStringN = sprintf(serString, "Sensor: %04X Accel: %04X %04X %04X Gyro: %04X %04X %04X\n\r",
-        serStringN = sprintf(serString, "Sensor: %3.0f Accel: %05d %05d %05d Gyro: %05d %05d %05d AZ: %f\n\r",
-                TemperatureC,
-                accel[0], accel[1], accel[2],
-                gyro[0], gyro[1], gyro[2], average);
+        AD1CON1bits.ADON = 0; // ADC off
+        AD1CHS = 0x0000;
+        AD1CON1bits.ADON = 1; // ADC on
+        AD1CON1bits.SAMP = 1;   //Start ADConversion
 
-        //U2TXREG = Data; // Transmit one character
+        while (!AD1CON1bits.DONE){}; // conversion done?
+        ADCvalue1 = ADC1BUF0;  // yes then get ADC value
+        
+        AD1CON1bits.ADON = 0; // ADC off
+        AD1CHS = 0x0001;
+        AD1CON1bits.ADON = 1; // ADC on
+        AD1CON1bits.SAMP = 1;   //Start ADConversion
 
+        while (!AD1CON1bits.DONE){}; // conversion done?
+        ADCvalue2 = ADC1BUF0;  // yes then get ADC value
 
+        xvelocity = ADCvalue1-512;
+        yvelocity = ADCvalue2-512;
 
-        __delay32(delaytime);
+        bbbspeed = sqrt(xvelocity*xvelocity + yvelocity*yvelocity);  //Calculate the magnitude of the combined two vectors
 
-//        calcdelay();
-    }
+        angle = atan2(yvelocity,xvelocity);     //Calculate the driving angle to balance the robot
 
-}
-void Pcontroller(void)
-{
-    // Setpoint, measured value, output - speed
-    int axset = 200;
-    float speed;
-    speed = (axset - accel[0]);
-    Speed2Delay(speed);
-}
-void Speed2Delay(float speed)
-{
-    // Speed is in steps/sec, max is:
-    // 1 rps * 200 step/rev * 32 microstep/step * 2 int/step = 12800
-    // Period = PR1 * prescaler * Tcy = 78 * 64 * 100ns = 2ms
-    float delay = 0;
-    if (fabs(speed) > 12800) // Maximum speed. Avoids overspeed on the motor and potential lockup of the interrupt handler.
-        delay = 17;
-    else if (fabs(speed) < 10) // Minimum speed. Makes sure that the interrupt is run at least 10 times per sec.
-        delay = 21739;
-    else
-        delay = 1/(speed * 0.0000046);
+        mot1direction = bbbspeed*cos(1.570796327 -angle);    //mot1 at 0 degrees from x axis driving to 90 degree direction
 
-    axdelay = fabs(delay);
-    if (speed >= 0) // Check direction of speed
-        axdir = 1;
-    else
-        axdir = 0;
+        mot2direction = bbbspeed*cos(3.665191429 - angle); //mot2 at 120 degree from x axis driving to 210 degree
 
-}
-void calcdelay(void)
-{
-    double tau = 6.2831;
-    double cstep = 1*tau/(500);
-    countpos = countpos + cstep;
-    if (countpos >= tau)
-        countpos = 0;
-    delaytime = (fabs(cos(countpos))*50000+20000)*1;
+        mot3direction = bbbspeed*cos(5.759586532 - angle); //mot3 at 240 degrees from x axis driving to 330 degrees
 
-}
-void readSensorData(void)
-{
-
-    LDSequentialReadI2C(ControlByte, 0x3B, rawsensor,14); // Read sensor data
-    // Put sensor data into 16 bit int variables
-    int i;
-    int ii = 0;
-    for (i = 0; i < 3; i++)
+        mot1speed = 3200/(fabs(mot1direction));         //Calculate appropriate driving speed so that
+        mot2speed = 3200/(fabs(mot2direction));         //driving speeds never go too slow and so that
+        mot3speed = 3200/(fabs(mot3direction));         //and so that motor is fast enough
+ 
+        if(mot1direction<0)
     {
-        accel[i] = rawsensor[ii] << 8;
-        ii++;
-        accel[i] = accel[i] | rawsensor[ii];
-        ii++;
+        int1direction=0;
     }
-    TemperatureRAW = rawsensor[ii] << 8;
-    ii++;
-    TemperatureRAW = TemperatureRAW | rawsensor[ii];
-    ii++;
-    for (i = 0; i < 3; i++)
+    else
     {
-        gyro[i] = rawsensor[ii] << 8;
-        ii++;
-        gyro[i] = gyro[i] | rawsensor[ii];
-        ii++;
+        int1direction=1;
     }
 
-}
-void GyroZaverage(void)
-{
+         if(mot2direction<0)
+    {
+        int2direction=0;
+    }
+    else
+    {
+        int2direction=1;
+    }
 
-      n++; 
-      average = average + ((gyro[2] - average)/n); 
+         if(mot3direction<0)
+    {
+        int3direction=0;
+    }
+    else
+    {
+        int3direction=1;
+    }
+
+    }
 }
-// Timer 1 interrupt service routine toggles LED on RD1
+
+/******************************************************************************/
+/* Default Interrupt Handler                                                  */
+/*                                                                            */
+/* This executes when an interrupt occurs for an interrupt source with an     */
+/* improperly defined or undefined interrupt handling routine.                */
+/******************************************************************************/
+void __attribute__((interrupt,no_auto_psv)) _DefaultInterrupt(void)
+{
+        while(1);
+}
+
+
 void __attribute__((__interrupt__, __auto_psv__)) _T1Interrupt(void)
 {
-
-    // Toggle LED on RD1
-    _LATD1 = 1 - _LATD1;
-    PR1 = axdelay;
-    _LATD3 = axdir;
-    // Clear Timer 1 interrupt flag
-    _T1IF = 0;
-
-
+/* Interrupt Service Routine code goes here */
+   _LATA4 = int1direction;
+    PR1 = (mot1speed); //Load the Period register with the value ADCvalue
+    _LATB5 =(1-_LATB5);         //Motor1 step
+IFS0bits.T1IF = 0; //Reset Timer1 interrupt flag and Return from ISR
 }
+
+void __attribute__((__interrupt__, __auto_psv__)) _T2Interrupt(void)
+{
+   
+/* Interrupt Service Routine code goes here */
+    _LATB6 = int2direction;
+    PR2 = (mot2speed); //Load the Period register with the value ADCvalue
+    _LATB7=(1-_LATB7);          //Motor2 step
+IFS0bits.T2IF = 0; //Reset Timer2 interrupt flag and Return from ISR
+}
+
+void __attribute__((__interrupt__, __auto_psv__)) _T3Interrupt(void)
+{
+   
+/* Interrupt Service Routine code goes here */
+    _LATB8 = int3direction;
+    PR3 = (mot3speed); //Load the Period register with the value ADCvalue
+    _LATB9=(1-_LATB9);          //Motor3 step
+IFS0bits.T3IF = 0; //Reset Timer2 interrupt flag and Return from ISR
+}
+

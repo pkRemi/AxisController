@@ -48,11 +48,3 @@ user.c - Custom user algorithms, user peripheral initialization, data
 computation functions, and calculation functions would go here.  Prototypes for
 user.c would go in user.h.
 
-FILES INCLUDED IN THE PROJECT BUT NOT IN THE PROJECT TREE:
-
-#include <p30Fxxxx.h>        /* Device header file                            */
-#include <stdint.h>          /* For uint16_t definition                       */
-#include <stdbool.h>         /* For true/false definition                     */
-
-These files come with the C30 compiler.  Check the compiler documentation for
-more information on these files.

@@ -27,11 +27,11 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 PROJECTNAME=AxisController.X
 
 # Active Configuration
-DEFAULTCONF=default
+DEFAULTCONF=C30_24FJ48GA002
 CONF=${DEFAULTCONF}
 
 # All Configurations
-ALLCONFS=default C30_PICkit3 
+ALLCONFS=C30_24FJ48GA002 
 
 
 # build
@@ -45,15 +45,13 @@ ALLCONFS=default C30_PICkit3
 
 # clobber
 .clobber-impl: .clobber-pre .depcheck-impl
-	    ${MAKE} SUBPROJECTS=${SUBPROJECTS} CONF=default clean
-	    ${MAKE} SUBPROJECTS=${SUBPROJECTS} CONF=C30_PICkit3 clean
+	    ${MAKE} SUBPROJECTS=${SUBPROJECTS} CONF=C30_24FJ48GA002 clean
 
 
 
 # all
 .all-impl: .all-pre .depcheck-impl
-	    ${MAKE} SUBPROJECTS=${SUBPROJECTS} CONF=default build
-	    ${MAKE} SUBPROJECTS=${SUBPROJECTS} CONF=C30_PICkit3 build
+	    ${MAKE} SUBPROJECTS=${SUBPROJECTS} CONF=C30_24FJ48GA002 build
 
 
 

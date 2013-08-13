@@ -5,7 +5,8 @@
 /* TODO Define system operating frequency */
 
 /* Microcontroller MIPs (FCY) */
-#define FCY             10000000
+#define SYS_FREQ        32000000
+#define FCY             SYS_FREQ/2
 
 /******************************************************************************/
 /* System Function Prototypes                                                 */
@@ -17,7 +18,3 @@ go here. */
 
 void ConfigureOscillator(void); /* Handles clock switching/osc initialization */
 
-void calcdelay(void);     /* Temporary function to create sine motion of motor*/
-void readSensorData(void);/*Temporary function to read I2C sensor data        */
-void GyroZaverage(void);  /* Temporary function to test averaging             */
-void __attribute__((__interrupt__, __auto_psv__)) _T1Interrupt(void);

@@ -2,9 +2,21 @@
 /* Files to Include                                                           */
 /******************************************************************************/
 
-#include <p30Fxxxx.h>      /* Device header file                              */
-#include <stdint.h>        /* Includes uint16_t definition                    */
-#include <stdbool.h>       /* Includes true/false definition                  */
+/* Device header file */
+#if defined(__XC16__)
+    #include <xc.h>
+#elif defined(__C30__)
+    #if defined(__PIC24E__)
+    	#include <p24Exxxx.h>
+    #elif defined (__PIC24F__)||defined (__PIC24FK__)
+	#include <p24Fxxxx.h>
+    #elif defined(__PIC24H__)
+	#include <p24Hxxxx.h>
+    #endif
+#endif
+
+#include <stdint.h>        /* Includes uint16_t definition */
+#include <stdbool.h>       /* Includes true/false definition */
 
 /******************************************************************************/
 /* Interrupt Vector Options                                                   */
@@ -14,35 +26,115 @@
 /* Guide for an up to date list of the available interrupt options.           */
 /* Alternately these names can be pulled from the device linker scripts.      */
 /*                                                                            */
-/* Primary Interrupt Vector Names:                                            */
+/* PIC24F Primary Interrupt Vector Names:                                     */
 /*                                                                            */
-/* _INT0Interrupt  _INT2Interrupt                                             */
-/* _IC1Interrupt   _U2RXInterrupt                                             */
-/* _OC1Interrupt   _U2TXInterrupt                                             */
-/* _T1Interrupt    _SPI2Interrupt                                             */
-/* _IC2Interrupt   _C1Interrupt                                               */
-/* _OC2Interrupt   _IC3Interrupt                                              */
-/* _T2Interrupt    _IC4Interrupt                                              */
-/* _T3Interrupt    _IC5Interrupt                                              */
-/* _SPI1Interrupt  _IC6Interrupt                                              */
-/* _U1RXInterrupt  _OC5Interrupt                                              */
-/* _U1TXInterrupt  _OC6Interrupt                                              */
-/* _ADCInterrupt   _OC7Interrupt                                              */
-/* _NVMInterrupt   _OC8Interrupt                                              */
-/* _SI2CInterrupt  _INT3Interrupt                                             */
-/* _MI2CInterrupt  _INT4Interrupt                                             */
-/* _CNInterrupt    _C2Interrupt                                               */
-/* _INT1Interrupt  _PWMInterrupt                                              */
-/* _IC7Interrupt   _QEIInterrupt                                              */
-/* _IC8Interrupt   _DCIInterrupt                                              */
-/* _OC3Interrupt   _LVDInterrupt                                              */
-/* _OC4Interrupt   _FLTAInterrupt                                             */
-/* _T4Interrupt    _FLTBInterrupt                                             */
-/* _T5Interrupt                                                               */
+/* _INT0Interrupt      _IC4Interrupt                                          */
+/* _IC1Interrupt       _IC5Interrupt                                          */
+/* _OC1Interrupt       _IC6Interrupt                                          */
+/* _T1Interrupt        _OC5Interrupt                                          */
+/* _Interrupt4         _OC6Interrupt                                          */
+/* _IC2Interrupt       _OC7Interrupt                                          */
+/* _OC2Interrupt       _OC8Interrupt                                          */
+/* _T2Interrupt        _PMPInterrupt                                          */
+/* _T3Interrupt        _SI2C2Interrupt                                        */
+/* _SPI1ErrInterrupt   _MI2C2Interrupt                                        */
+/* _SPI1Interrupt      _INT3Interrupt                                         */
+/* _U1RXInterrupt      _INT4Interrupt                                         */
+/* _U1TXInterrupt      _RTCCInterrupt                                         */
+/* _ADC1Interrupt      _U1ErrInterrupt                                        */
+/* _SI2C1Interrupt     _U2ErrInterrupt                                        */
+/* _MI2C1Interrupt     _CRCInterrupt                                          */
+/* _CompInterrupt      _LVDInterrupt                                          */
+/* _CNInterrupt        _CTMUInterrupt                                         */
+/* _INT1Interrupt      _U3ErrInterrupt                                        */
+/* _IC7Interrupt       _U3RXInterrupt                                         */
+/* _IC8Interrupt       _U3TXInterrupt                                         */
+/* _OC3Interrupt       _SI2C3Interrupt                                        */
+/* _OC4Interrupt       _MI2C3Interrupt                                        */
+/* _T4Interrupt        _U4ErrInterrupt                                        */
+/* _T5Interrupt        _U4RXInterrupt                                         */
+/* _INT2Interrupt      _U4TXInterrupt                                         */
+/* _U2RXInterrupt      _SPI3ErrInterrupt                                      */
+/* _U2TXInterrupt      _SPI3Interrupt                                         */
+/* _SPI2ErrInterrupt   _OC9Interrupt                                          */
+/* _SPI2Interrupt      _IC9Interrupt                                          */
+/* _IC3Interrupt                                                              */
+/*                                                                            */
+/* PIC24H Primary Interrupt Vector Names:                                     */
+/*                                                                            */
+/* _INT0Interrupt      _SPI2Interrupt                                         */
+/* _IC1Interrupt       _C1RxRdyInterrupt                                      */
+/* _OC1Interrupt       _C1Interrupt                                           */
+/* _T1Interrupt        _DMA3Interrupt                                         */
+/* _DMA0Interrupt      _IC3Interrupt                                          */
+/* _IC2Interrupt       _IC4Interrupt                                          */
+/* _OC2Interrupt       _IC5Interrupt                                          */
+/* _T2Interrupt        _IC6Interrupt                                          */
+/* _T3Interrupt        _OC5Interrupt                                          */
+/* _SPI1ErrInterrupt   _OC6Interrupt                                          */
+/* _SPI1Interrupt      _OC7Interrupt                                          */
+/* _U1RXInterrupt      _OC8Interrupt                                          */
+/* _U1TXInterrupt      _DMA4Interrupt                                         */
+/* _ADC1Interrupt      _T6Interrupt                                           */
+/* _DMA1Interrupt      _T7Interrupt                                           */
+/* _SI2C1Interrupt     _SI2C2Interrupt                                        */
+/* _MI2C1Interrupt     _MI2C2Interrupt                                        */
+/* _CNInterrupt        _T8Interrupt                                           */
+/* _INT1Interrupt      _T9Interrupt                                           */
+/* _ADC2Interrupt      _INT3Interrupt                                         */
+/* _IC7Interrupt       _INT4Interrupt                                         */
+/* _IC8Interrupt       _C2RxRdyInterrupt                                      */
+/* _DMA2Interrupt      _C2Interrupt                                           */
+/* _OC3Interrupt       _DCIErrInterrupt                                       */
+/* _OC4Interrupt       _DCIInterrupt                                          */
+/* _T4Interrupt        _U1ErrInterrupt                                        */
+/* _T5Interrupt        _U2ErrInterrupt                                        */
+/* _INT2Interrupt      _DMA6Interrupt                                         */
+/* _U2RXInterrupt      _DMA7Interrupt                                         */
+/* _U2TXInterrupt      _C1TxReqInterrupt                                      */
+/* _SPI2ErrInterrupt   _C2TxReqInterrupt                                      */
+/*                                                                            */
+/* PIC24E Primary Interrupt Vector Names:                                     */
+/*                                                                            */
+/* __INT0Interrupt     __C1RxRdyInterrupt      __U3TXInterrupt                */
+/* __IC1Interrupt      __C1Interrupt           __USB1Interrupt                */
+/* __OC1Interrupt      __DMA3Interrupt         __U4ErrInterrupt               */
+/* __T1Interrupt       __IC3Interrupt          __U4RXInterrupt                */
+/* __DMA0Interrupt     __IC4Interrupt          __U4TXInterrupt                */
+/* __IC2Interrupt      __IC5Interrupt          __SPI3ErrInterrupt             */
+/* __OC2Interrupt      __IC6Interrupt          __SPI3Interrupt                */
+/* __T2Interrupt       __OC5Interrupt          __OC9Interrupt                 */
+/* __T3Interrupt       __OC6Interrupt          __IC9Interrupt                 */
+/* __SPI1ErrInterrupt  __OC7Interrupt          __DMA8Interrupt                */
+/* __SPI1Interrupt     __OC8Interrupt          __DMA9Interrupt                */
+/* __U1RXInterrupt     __PMPInterrupt          __DMA10Interrupt               */
+/* __U1TXInterrupt     __DMA4Interrupt         __DMA11Interrupt               */
+/* __AD1Interrupt      __T6Interrupt           __SPI4ErrInterrupt             */
+/* __DMA1Interrupt     __T7Interrupt           __SPI4Interrupt                */
+/* __NVMInterrupt      __SI2C2Interrupt        __OC10Interrupt                */
+/* __SI2C1Interrupt    __MI2C2Interrupt        __IC10Interrupt                */
+/* __MI2C1Interrupt    __T8Interrupt           __OC11Interrupt                */
+/* __CM1Interrupt      __T9Interrupt           __IC11Interrupt                */
+/* __CNInterrupt       __INT3Interrupt         __OC12Interrupt                */
+/* __INT1Interrupt     __INT4Interrupt         __IC12Interrupt                */
+/* __AD2Interrupt      __C2RxRdyInterrupt      __DMA12Interrupt               */
+/* __IC7Interrupt      __C2Interrupt           __DMA13Interrupt               */
+/* __IC8Interrupt      __DMA5Interrupt         __DMA14Interrupt               */
+/* __DMA2Interrupt     __RTCCInterrupt         __OC13Interrupt                */
+/* __OC3Interrupt      __U1ErrInterrupt        __IC13Interrupt                */
+/* __OC4Interrupt      __U2ErrInterrupt        __OC14Interrupt                */
+/* __T4Interrupt       __CRCInterrupt          __IC14Interrupt                */
+/* __T5Interrupt       __DMA6Interrupt         __OC15Interrupt                */
+/* __INT2Interrupt     __DMA7Interrupt         __IC15Interrupt                */
+/* __U2RXInterrupt     __C1TxReqInterrupt      __OC16Interrupt                */
+/* __U2TXInterrupt     __C2TxReqInterrupt      __IC16Interrupt                */
+/* __SPI2ErrInterrupt  __U3ErrInterrupt        __ICDInterrupt                 */
+/* __SPI2Interrupt     __U3RXInterrupt                                        */
+/*                                                                            */
 /*                                                                            */
 /* For alternate interrupt vector naming, simply add 'Alt' between the prim.  */
 /* interrupt vector name '_' and the first character of the primary interrupt */
-/* vector name.                                                               */
+/* vector name.  There are no Alternate or 'Alt' vectors for the 24E family.  */
 /*                                                                            */
 /* For example, the vector name _ADC2Interrupt becomes _AltADC2Interrupt in   */
 /* the alternate vector table.                                                */
@@ -60,160 +152,7 @@
 /* release.                                                                   */
 /*                                                                            */
 /******************************************************************************/
-/* Interrupt Prototypes                                                         */
-/******************************************************************************/
-
-void SetupInterrupts(void);
-
-
-/******************************************************************************/
 /* Interrupt Routines                                                         */
 /******************************************************************************/
 
 /* TODO Add interrupt routine code here. */
-
-void SetupInterrupts(void)
-{
-    // Configure Timer 1.
-    // PR1 and TCKPS are set to call interrupt every 2ms.
-    // Period = PR1 * prescaler * Tcy = 78 * 256 * 100ns = 2ms
-    
-    T1CON = 0;            // Clear Timer 1 configuration
-    T1CONbits.TCKPS = 2;  // Set timer 1 prescaler (0=1:1, 1=1:8, 2=1:64, 3=1:256)
-    PR1 = 78;             // Set Timer 1 period (max value is 65535)
-    _T1IP = 1;            // Set Timer 1 interrupt priority
-    _T1IF = 0;            // Clear Timer 1 interrupt flag
-    _T1IE = 1;            // Enable Timer 1 interrupt
-    T1CONbits.TON = 1;    // Turn on Timer 1
-}
-
-
-///** I N T E R R U P T S ***********************************************/
-//// From SERIAL example(Remi)
-////----------------------------------------------------------------------------
-//// High priority interrupt vector
-//
-//#pragma code InterruptVectorHigh = 0x08
-//void InterruptVectorHigh (void)
-//{
-//  _asm
-//    goto InterruptServiceHigh //jump to interrupt routine
-//  _endasm
-//}
-//
-////----------------------------------------------------------------------------
-//// Low priority interrupt vector
-//
-//#pragma code InterruptVectorLow = 0x18
-//void InterruptVectorLow (void)
-//{
-//  _asm
-//    goto InterruptServiceLow //jump to interrupt routine
-//  _endasm
-//}
-//void Timer0_Init(void)
-//{
-//    // Set up Interrupts for timer
-//    INTCONbits.TMR0IF = 0;          // clear roll-over interrupt flag
-//    INTCON2bits.TMR0IP = 1;         // Timer0 is high priority interrupt
-//    INTCONbits.TMR0IE = 1;          // enable the Timer0 interrupt.
-//    // Set up timer itself
-//    T0CON = 0b00000000;             // prescale 1:4 - about 1 second maximum delay.
-//    TMR0H = 0;                      // clear timer - always write upper byte first
-//    TMR0L = 0;
-//    T0CONbits.TMR0ON = 1;           // start timer
-//}
-//void prompt(void)
-//{
-//	printf("STEPPER ->");
-//}
-//// -------------------- Iterrupt Service Routines --------------------------
-//#pragma interrupt InterruptServiceHigh  // "interrupt" pragma also for high priority
-//void InterruptServiceHigh(void)
-//{
-//    // Check to see what caused the interrupt
-//    // (Necessary when more than 1 interrupt at a priority level)
-//
-//    // Check for INT0 interrupt
-//    if (INTCONbits.INT0IF)
-//    {
-//        // clear (reset) flag
-//        INTCONbits.INT0IF = 0;
-//    }
-//    // Check for Timer0 Interrupt
-//    if  (INTCONbits.TMR0IF)
-//    {
-//        INTCONbits.TMR0IF = 0;          // clear (reset) flag
-//		if (direction == 0)
-//		{
-//			LATA = 0;
-//		}
-//		else if (direction == 1)
-//		{
-//		PatternNr++;
-//		if(PatternNr > 3)
-//			PatternNr = 0;
-//		LATA = PatternLookup[PatternNr];
-//		if (relativeSteps < 65535)
-//		{
-//			relativeSteps--;
-//			if (relativeSteps == 0)
-//				direction = 0;
-//		}
-//		}
-//		else if (direction == 2)
-//		{
-//		PatternNr--;
-//		if(PatternNr > 4)
-//			PatternNr = 3;
-//		LATA = PatternLookup[PatternNr];
-//		if (relativeSteps < 65535)
-//		{
-//			relativeSteps--;
-//			if (relativeSteps == 0)
-//				direction = 0;
-//		}
-//		}
-//		TMR0H = 255;      // MSB from serial input
-//		TMR0L = Speed;                  // LSB = 0
-//	}
-//    // Check for another interrupt, examples:
-//    // if (PIR1bits.TMR1IF)     // Timer 1
-//    // if (PIR1bits.ADIF)       // ADC
-//
-//}  // return from high-priority interrupt
-//
-//#pragma interruptlow InterruptServiceLow// "interruptlow" pragma for low priority
-//void InterruptServiceLow(void)
-//{
-//    // Check to see what caused the interrupt
-//    // (Necessary when more than 1 interrupt at a priority level)
-//
-//    // Check for Timer0 Interrupt
-//    if  (INTCONbits.TMR0IF)
-//    {
-//        INTCONbits.TMR0IF = 0;          // clear (reset) flag
-//
-//    }
-//	if (PIR1bits.RCIF)
-//	{
-//		//unsigned char serialChar;
-//		serInput = RCREG;
-//
-//		if (serInput == 0x0D)
-//		{
-//			printFlag = 1;
-//		}
-//		else
-//		{
-//			if (serInputBufferLoc > 62)
-//				serInputBufferLoc = 62;
-//			serInputBuffer[serInputBufferLoc] = serInput;
-//			serInputBufferLoc++;
-//		}
-//
-//	}
-//    // Check for another interrupt, examples:
-//    // if (PIR1bits.TMR1IF)     // Timer 1
-//    // if (PIR1bits.ADIF)       // ADC
-//}
