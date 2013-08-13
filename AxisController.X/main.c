@@ -3,29 +3,20 @@
 /******************************************************************************/
 
 /* Device header file */
-#if defined(__XC16__)
-    #include <xc.h>
-#elif defined(__C30__)
-    #if defined(__PIC24E__)
-    	#include <p24Exxxx.h>
-    #elif defined (__PIC24F__)||defined (__PIC24FK__)
-	#include <p24Fxxxx.h>
-    #elif defined(__PIC24H__)
-	#include <p24Hxxxx.h>
-    #endif
-#endif
-
+#include <p24Fxxxx.h>
 #include <stdint.h>        /* Includes uint16_t definition                    */
 #include <stdbool.h>       /* Includes true/false definition                  */
-#include <libpic30.h>       /*included delay function */
+#include <libpic30.h>      /* Included delay function                         */
 #include <math.h>
 #include "system.h"        /* System funct/params, like osc/peripheral config */
 #include "user.h"          /* User funct/params, such as InitApp              */
 
 
 /******************************************************************************/
-/* Function prototypes                                               */
+/* Function prototypes                                                        */
 /******************************************************************************/
+unsigned int ReadSPI1();
+void getsSPI( unsigned char *rdptr, unsigned char length );
 
 
 /* Default interrupt handler */
@@ -70,10 +61,48 @@ int16_t main(void)
     setuptimer2();
     setuptimer3();
     setupADC();
-    /* TODO <INSERT USER APPLICATION CODE HERE> */
+    initSPI1();
 
+    /* Local Variables */
+    unsigned int command = 0;
+    signed int xSpeed = 0;
+    signed int ySpeed = 0;
+    float angleOffset = 0;
+    unsigned int *chptr;                // For receiving a float value
+    bool spiInt = 0;
     while(1)
     {
+        command = 0;
+        xSpeed = 0;
+        ySpeed = 0;
+        angleOffset = 0;
+        spiInt = IFS0bits.SPI1IF;
+        if (spiInt)
+        {
+            _LATB11 = 1;
+            command = SPI1BUF;
+            while(SPI1STATbits.SRXMPT); // Wait if Buffer is empty
+            xSpeed = SPI1BUF;
+            while(SPI1STATbits.SRXMPT);
+            ySpeed = SPI1BUF;
+            chptr = (unsigned char *) &angleOffset;  // For receiving a float value
+            while(SPI1STATbits.SRXMPT);
+            *chptr++ = SPI1BUF;
+            while(SPI1STATbits.SRXMPT);
+            *chptr++ = SPI1BUF;
+            IFS0bits.SPI1IF = 0;
+            _LATB11 = 0;
+        }
+        /* Temporary check of data */
+        if (command==0x8000 && xSpeed == -124 && ySpeed == 123 && angleOffset == 1.747)
+        {
+            _LATB10 = 1;
+            __delay32(100);
+            _LATB10 = 0;
+        }
+
+
+
         AD1CON1bits.ADON = 0; // ADC off
         AD1CHS = 0x0000;
         AD1CON1bits.ADON = 1; // ADC on
@@ -136,7 +165,56 @@ int16_t main(void)
 
     }
 }
+/********************************************************************
+*     Function Name:    getsSPI                                     *
+*     Return Value:     void                                        *
+*     Parameters:       address of read string storage location and *
+*                       length of string bytes to read              *
+*     Description:      This routine reads a string from the SPI    *
+*                       bus.  The number of bytes to read is deter- *
+*                       mined by parameter 'length'.                *
+********************************************************************/
+void getsSPI( unsigned char *rdptr, unsigned char length )
+{
+  while ( length )                  // stay in loop until length = 0
+  {
+    *rdptr++ = ReadSPI1();          // read a single byte
+    length--;                       // reduce string length count by 1
+  }
+}
+/******************************************************************************
+*     Function Name :   ReadSPI1                                              *
+*     Description   :   This function will read single byte/ word  from SPI   *
+*                       bus. If SPI is configured for byte  communication     *
+*                       then upper byte of SPIBUF is masked.                  *
+*     Parameters    :   None                                                  *
+*     Return Value  :   contents of SPIBUF register                           *
+******************************************************************************/
 
+unsigned int ReadSPI1()
+{
+    int spiin = 0x42;
+    SPI1STATbits.SPIROV = 0;
+  SPI1BUF = 0xFF;                  // initiate bus cycle , was 00 changed to FF
+  while(!SPI1STATbits.SPIRBF);
+  //__delay32(1000);
+  /* Check for Receive buffer full status bit of status register*/
+  if (SPI1STATbits.SPIRBF)
+  {
+      SPI1STATbits.SPIROV = 0;
+
+      if (SPI1CON1bits.MODE16)
+      {
+          spiin = SPI1BUF;
+          return (spiin);           /* return word read */
+
+      }
+      else
+          spiin = SPI1BUF;
+          return (spiin & 0xff);    /* return byte read */
+  }
+  return -1;                  		/* RBF bit is not set return error*/
+}
 /******************************************************************************/
 /* Default Interrupt Handler                                                  */
 /*                                                                            */

@@ -26,7 +26,7 @@
 
 /* <Initialize variables in user.h and insert code for user algorithms.> */
 
-/* TODO Initialize User Ports/Peripherals/Project here */
+/* TODO Move enable stepper */
 
 void InitApp(void)
 {
@@ -34,7 +34,7 @@ void InitApp(void)
     _LATB4 = 0; // ENABLE STEPPER
     /* Setup analog functionality and port direction */
     TRISA=0b00011;       // Set RA0 and RA1 pins as inputs, rest as ouputs
-    TRISB=0b0000000000000000;       // Set RBx pins as outputs
+    TRISB=0b1111000000000000;       // Set RBx pins as outputs
     AD1PCFG=0b1111111111111100;     //set RA0 as AN0  and RA1 as AN0 analog input
     //AD1PCFG = 0xEFFF; // all PORTB = Digital; RB12 = analog
     /* Initialize peripherals */
@@ -44,6 +44,13 @@ void InitApp(void)
     _LATB2 = 1; // RESET STEPPER
     __delay32(16000000);
     _LATB4 = 1; // ENABLE STEPPER
+
+    // SPI1 inputs
+    RPINR20bits.SDI1R = 14;     // SPI1 Data Input MOSI RP14 pin 25
+    RPINR20bits.SCK1R = 13;     // SPI1 SCK  Input SCK  RP13 pin 24
+    RPINR21bits.SS1R  = 15;     // SPI1 Slave Select    RP15 pin 26
+    // SPI1 output
+    RPOR6bits.RP12R = 7;        // MOSI SDO1 to         RP12 pin 23
 
 }
 
@@ -148,4 +155,31 @@ AD1CON3 = 0x1F02;  // Sample time = 31Tad, Tad = 3Tcy
 AD1CON2 = 0;
 AD1CON1bits.ADON = 1;  // turn ADC ON
 */
+}
+void initSPI1(void)
+{
+    // RP pin configurations are set in InitApp
+    SPI1BUF = 0;                // Clearing SPI1 Buffer
+    SPI1STATbits.SPIEN = 0;     // Disable SPI1 before configuration
+    SPI1CON1bits.DISSCK = 1;    // Internal SPIx clock is disabled
+    SPI1CON1bits.DISSDO = 0;    // SDOx pin is controlled by the module
+    SPI1CON1bits.MODE16 = 1;    // Communication is word-wide (16 bits)
+    SPI1CON1bits.SMP = 0;       // Input data sampled at middle of data output time
+    SPI1CON1bits.CKE = 1;       // Serial output data changes on transition from active clock state to Idle clock state (see bit 6)
+    SPI1CON1bits.SSEN = 1;      // SSx pin used for Slave mode
+    SPI1CON1bits.CKP = 0;       // Idle state for clock is a low level; active state is a high level
+    SPI1CON1bits.MSTEN = 0;     // Master mode
+    SPI1CON1bits.SPRE = 0b111;  // 111 = Secondary prescale 1:1
+    SPI1CON1bits.PPRE = 0b01;   // 01 = Primary prescale 16:1 sets SPI to 1MHz
+    SPI1CON2bits.FRMEN = 0;     // Framed SPIx support enabled
+    SPI1CON2bits.SPIFSD = 0;    // Frame sync pulse output (master)
+    SPI1CON2bits.SPIFPOL = 0;   // Frame sync pulse is active-low
+    SPI1CON2bits.SPIFE = 0;     // 0 = Frame sync pulse precedes first bit clock (not used)
+    SPI1CON2bits.SPIBEN = 1;    // Enhanced Buffer
+    SPI1STATbits.SPIROV = 0;    // No overflow
+    SPI1STATbits.SISEL = 0b001; // 001 = Interrupt when data is available in receive buffer
+    SPI1STATbits.SPIEN = 1;     // Enable SPI1 after configuration
+    // Setup interrupt
+    IFS0bits.SPI1IF = 0;        // Reset interrupt flag
+    IEC0bits.SPI1IE = 0;        // Disable SPI1 interrupt
 }
