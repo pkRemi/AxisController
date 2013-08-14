@@ -114,14 +114,16 @@ int16_t main(void)
         while (!AD1CON1bits.DONE){}; // conversion done?
         ADCvalue2 = ADC1BUF0;  // yes then get ADC value
 
-        xvelocity = ADCvalue1-512;
-        yvelocity = ADCvalue2-512;
+//        xvelocity = ADCvalue1-512;
+//        yvelocity = ADCvalue2-512;
+        xvelocity = xSpeed;
+        yvelocity = ySpeed;
 
         bbbspeed = sqrt(xvelocity*xvelocity + yvelocity*yvelocity);  //Calculate the magnitude of the combined two vectors
 
-        angle = atan2(yvelocity,xvelocity);     //Calculate the driving angle to balance the robot
+        angle = atan2(yvelocity,xvelocity) + angleOffset;  //Calculate the driving angle to balance the robot
 
-        mot1direction = bbbspeed*cos(1.570796327 -angle);    //mot1 at 0 degrees from x axis driving to 90 degree direction
+        mot1direction = bbbspeed*cos(1.570796327 -angle);  //mot1 at 0 degrees from x axis driving to 90 degree direction
 
         mot2direction = bbbspeed*cos(3.665191429 - angle); //mot2 at 120 degree from x axis driving to 210 degree
 
@@ -132,31 +134,31 @@ int16_t main(void)
         mot3speed = 3200/(fabs(mot3direction));         //and so that motor is fast enough
  
         if(mot1direction<0)
-    {
-        int1direction=0;
-    }
-    else
-    {
-        int1direction=1;
-    }
+        {
+            int1direction=0;
+        }
+        else
+        {
+            int1direction=1;
+        }
 
-         if(mot2direction<0)
-    {
-        int2direction=0;
-    }
-    else
-    {
-        int2direction=1;
-    }
+        if(mot2direction<0)
+        {
+            int2direction=0;
+        }
+        else
+        {
+            int2direction=1;
+        }
 
-         if(mot3direction<0)
-    {
-        int3direction=0;
-    }
-    else
-    {
-        int3direction=1;
-    }
+        if(mot3direction<0)
+        {
+            int3direction=0;
+        }
+        else
+        {
+            int3direction=1;
+        }
 
     }
 }
