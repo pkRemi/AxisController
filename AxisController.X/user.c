@@ -43,7 +43,7 @@ void InitApp(void)
     __delay32(16000000);
     _LATB2 = 1; // RESET STEPPER
     __delay32(16000000);
-    _LATB4 = 1; // ENABLE STEPPER
+    //_LATB4 = 1; // ENABLE STEPPER
 
     // SPI1 inputs
     RPINR20bits.SDI1R = 14;     // SPI1 Data Input MOSI RP14 pin 25

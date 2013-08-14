@@ -72,10 +72,6 @@ int16_t main(void)
     bool spiInt = 0;
     while(1)
     {
-        command = 0;
-        xSpeed = 0;
-        ySpeed = 0;
-        angleOffset = 0;
         spiInt = IFS0bits.SPI1IF;
         if (spiInt)
         {
@@ -93,15 +89,14 @@ int16_t main(void)
             IFS0bits.SPI1IF = 0;
             _LATB11 = 0;
         }
-        /* Temporary check of data */
-        if (command==0x8000 && xSpeed == -124 && ySpeed == 123 && angleOffset == 1.747)
+        if (command & 0b0100000000000000) // Check if bit14 is set (enable)
         {
-            _LATB10 = 1;
-            __delay32(100);
-            _LATB10 = 0;
+            _LATB4 = 1; // ENABLE STEPPER
         }
-
-
+        else
+        {
+            _LATB4 = 0; // DISABLE STEPPER
+        }
 
         AD1CON1bits.ADON = 0; // ADC off
         AD1CHS = 0x0000;
