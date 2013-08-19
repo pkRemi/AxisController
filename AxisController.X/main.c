@@ -15,9 +15,7 @@
 /******************************************************************************/
 /* Function prototypes                                                        */
 /******************************************************************************/
-unsigned int ReadSPI1();
-void getsSPI( unsigned char *rdptr, unsigned char length );
-
+int limitSpeed(int motnr);
 
 /* Default interrupt handler */
 void __attribute__((interrupt,no_auto_psv)) _DefaultInterrupt(void);
@@ -32,17 +30,21 @@ long int ADCvalue1=0;
 long int ADCvalue2=0;
 long int xvelocity=0;
 long int yvelocity=0;
-long int mot1speed=0;
-float mot1direction=0;
-long int mot2speed=0;
-float mot2direction=0;
-long int mot3speed=0;
-float mot3direction=0;
+//long int mot1speed=0;
+//long int mot2speed=0;
+//long int mot3speed=0;
+long motdir[3] = {0,0,0};
+//float mot1direction=0;
+//float mot2direction=0;
+//float mot3direction=0;
+long actualmotdir[3]= {0,0,0};
+long lastdelay[3]= {0,0,0};
 float bbbspeed=0;
 float angle =0;
-signed int int1direction=0;
-signed int int2direction=0;
-signed int int3direction=0;
+int intdirection[3] = {0,0,0};
+int maxSpeed = 5000;
+int minSpeed = 30;
+int maxChange = 15;
 /* i.e. uint16_t <variable_name>; */
 
 /******************************************************************************/
@@ -64,6 +66,9 @@ int16_t main(void)
     initSPI1();
 
     /* Local Variables */
+    long motdirtemp[3] = {0,0,0};
+    int i;
+    int oorFlag = 0;
     unsigned int command = 0;
     signed int xSpeed = 0;
     signed int ySpeed = 0;
@@ -113,105 +118,92 @@ int16_t main(void)
 
         while (!AD1CON1bits.DONE){}; // conversion done?
         ADCvalue2 = ADC1BUF0;  // yes then get ADC value
-
-//        xvelocity = ADCvalue1-512;
-//        yvelocity = ADCvalue2-512;
+//        maxChange = ADCvalue1/10;
+//        xvelocity = (ADCvalue1-512)*10;
+//        yvelocity = (ADCvalue2-512)*10;
         xvelocity = xSpeed;
         yvelocity = ySpeed;
-
+        _LATB11 = 1;
         bbbspeed = sqrt(xvelocity*xvelocity + yvelocity*yvelocity);  //Calculate the magnitude of the combined two vectors
-
+        _LATB10 = 1;
         angle = atan2(yvelocity,xvelocity) + angleOffset;  //Calculate the driving angle to balance the robot
+        _LATB10 = 0;
 
-        mot1direction = bbbspeed*cos(1.570796327 -angle);  //mot1 at 0 degrees from x axis driving to 90 degree direction
+        motdirtemp[0] = bbbspeed*cos(1.570796327 -angle);  //mot1 at 0 degrees from x axis driving to 90 degree direction
+        _LATB10 = 1;
 
-        mot2direction = bbbspeed*cos(3.665191429 - angle); //mot2 at 120 degree from x axis driving to 210 degree
+        motdirtemp[1]= bbbspeed*cos(3.665191429 - angle); //mot2 at 120 degree from x axis driving to 210 degree
+        _LATB10 = 0;
 
-        mot3direction = bbbspeed*cos(5.759586532 - angle); //mot3 at 240 degrees from x axis driving to 330 degrees
+        motdirtemp[2] = bbbspeed*cos(5.759586532 - angle); //mot3 at 240 degrees from x axis driving to 330 degrees
+        _LATB11 =0;
 
-        mot1speed = 3200/(fabs(mot1direction));         //Calculate appropriate driving speed so that
-        mot2speed = 3200/(fabs(mot2direction));         //driving speeds never go too slow and so that
-        mot3speed = 3200/(fabs(mot3direction));         //and so that motor is fast enough
- 
-        if(mot1direction<0)
+        for (i=0;i<3;i++)
         {
-            int1direction=0;
+            oorFlag = 0;
+            if (motdirtemp[i]>0)
+            {
+                if (motdirtemp[i] > 5208)     //maxSpeed
+                {
+                    motdir[i] = 5208;
+                    oorFlag = 1;
+                }
+                else if (motdirtemp[i] < 60)  //minSpeed (step frequency)
+                {
+                    motdir[i] = 60;
+                    oorFlag = 1;
+                }
+            }
+            else
+            {
+                if (motdirtemp[i] < -5208)
+                {
+                    motdir[i] = -5208;
+                    oorFlag = 1;
+                }
+                else if (motdirtemp[i] > -60)
+                {
+                    motdir[i] = -60;
+                    oorFlag = 1;
+                }
+            }
+            if (!oorFlag)
+                motdir[i] = motdirtemp[i];
         }
-        else
-        {
-            int1direction=1;
-        }
-
-        if(mot2direction<0)
-        {
-            int2direction=0;
-        }
-        else
-        {
-            int2direction=1;
-        }
-
-        if(mot3direction<0)
-        {
-            int3direction=0;
-        }
-        else
-        {
-            int3direction=1;
-        }
+//        mot1speed = 3200/(fabs(mot1direction));         //Calculate appropriate driving speed so that
+//        mot2speed = 3200/(fabs(mot2direction));         //driving speeds never go too slow and so that
+//        mot3speed = 3200/(fabs(mot3direction));         //and so that motor is fast enough
+//
+//        if(mot1direction<0)
+//        {
+//            int1direction=0;
+//        }
+//        else
+//        {
+//            int1direction=1;
+//        }
+//
+//        if(mot2direction<0)
+//        {
+//            int2direction=0;
+//        }
+//        else
+//        {
+//            int2direction=1;
+//        }
+//
+//        if(mot3direction<0)
+//        {
+//            int3direction=0;
+//        }
+//        else
+//        {
+//            int3direction=1;
+//        }
 
     }
 }
-/********************************************************************
-*     Function Name:    getsSPI                                     *
-*     Return Value:     void                                        *
-*     Parameters:       address of read string storage location and *
-*                       length of string bytes to read              *
-*     Description:      This routine reads a string from the SPI    *
-*                       bus.  The number of bytes to read is deter- *
-*                       mined by parameter 'length'.                *
-********************************************************************/
-void getsSPI( unsigned char *rdptr, unsigned char length )
-{
-  while ( length )                  // stay in loop until length = 0
-  {
-    *rdptr++ = ReadSPI1();          // read a single byte
-    length--;                       // reduce string length count by 1
-  }
-}
-/******************************************************************************
-*     Function Name :   ReadSPI1                                              *
-*     Description   :   This function will read single byte/ word  from SPI   *
-*                       bus. If SPI is configured for byte  communication     *
-*                       then upper byte of SPIBUF is masked.                  *
-*     Parameters    :   None                                                  *
-*     Return Value  :   contents of SPIBUF register                           *
-******************************************************************************/
 
-unsigned int ReadSPI1()
-{
-    int spiin = 0x42;
-    SPI1STATbits.SPIROV = 0;
-  SPI1BUF = 0xFF;                  // initiate bus cycle , was 00 changed to FF
-  while(!SPI1STATbits.SPIRBF);
-  //__delay32(1000);
-  /* Check for Receive buffer full status bit of status register*/
-  if (SPI1STATbits.SPIRBF)
-  {
-      SPI1STATbits.SPIROV = 0;
-
-      if (SPI1CON1bits.MODE16)
-      {
-          spiin = SPI1BUF;
-          return (spiin);           /* return word read */
-
-      }
-      else
-          spiin = SPI1BUF;
-          return (spiin & 0xff);    /* return byte read */
-  }
-  return -1;                  		/* RBF bit is not set return error*/
-}
 /******************************************************************************/
 /* Default Interrupt Handler                                                  */
 /*                                                                            */
@@ -227,29 +219,206 @@ void __attribute__((interrupt,no_auto_psv)) _DefaultInterrupt(void)
 void __attribute__((__interrupt__, __auto_psv__)) _T1Interrupt(void)
 {
 /* Interrupt Service Routine code goes here */
-   _LATA4 = int1direction;
-    PR1 = (mot1speed); //Load the Period register with the value ADCvalue
+    int motnr = 0;
+    int delay;
+    int change;
+    int absmotdir = 0;
+
+    change = actualmotdir[motnr] - motdir[motnr];
+    if ( change < maxChange && change > - maxChange)
+    {
+        actualmotdir[motnr] = motdir[motnr];
+    }
+    else
+    {
+        if (change>0)
+            actualmotdir[motnr] = actualmotdir[motnr] - (lastdelay[motnr] >> 3);
+        if (change<0)
+            actualmotdir[motnr] = actualmotdir[motnr] + (lastdelay[motnr] >> 3);
+    }
+    if (actualmotdir[motnr]>0)
+    {
+        intdirection[motnr] = 1;
+        absmotdir = actualmotdir[motnr];
+    }
+    else
+    {
+        intdirection[motnr] = 0;
+        absmotdir = -actualmotdir[motnr];
+    }
+    if (absmotdir <= 3264)
+        delay = 125000/absmotdir;
+    else if (absmotdir>5102)
+        delay = 24;
+    else if (absmotdir>4907)
+        delay = 25;
+    else if (absmotdir>4716)
+        delay = 26;
+    else if (absmotdir>4545)
+        delay = 27;
+    else if (absmotdir>4385)
+        delay = 28;
+    else if (absmotdir>4237)
+        delay = 29;
+    else if (absmotdir>4098)
+        delay = 30;
+    else if (absmotdir>3968)
+        delay = 31;
+    else if (absmotdir>3446)
+        delay = 32;
+    else if (absmotdir>3731)
+        delay = 33;
+    else if (absmotdir>3623)
+        delay = 34;
+    else if (absmotdir>3521)
+        delay = 35;
+    else if (absmotdir>3424)
+        delay = 36;
+    else if (absmotdir>3333)
+        delay = 37;
+    else if (absmotdir>3246)
+        delay = 38;
+    lastdelay[motnr] = delay;
+    PR1 = delay; //Load the Period register with the value ADCvalue
+    _LATA4 = intdirection[0];
     _LATB5 =(1-_LATB5);         //Motor1 step
-IFS0bits.T1IF = 0; //Reset Timer1 interrupt flag and Return from ISR
+    IFS0bits.T1IF = 0; //Reset Timer1 interrupt flag and Return from ISR
 }
 
 void __attribute__((__interrupt__, __auto_psv__)) _T2Interrupt(void)
 {
    
 /* Interrupt Service Routine code goes here */
-    _LATB6 = int2direction;
-    PR2 = (mot2speed); //Load the Period register with the value ADCvalue
+    int motnr = 1;
+    int delay;
+    int change;
+    int absmotdir = 0;
+    change = actualmotdir[motnr] - motdir[motnr];
+    if ( change < maxChange && change > - maxChange)
+    {
+        actualmotdir[motnr] = motdir[motnr];
+    }
+    else
+    {
+        if (change>0)
+            actualmotdir[motnr] = actualmotdir[motnr] - (lastdelay[motnr] >> 3);
+        if (change<0)
+            actualmotdir[motnr] = actualmotdir[motnr] + (lastdelay[motnr] >> 3);
+    }
+    if (actualmotdir[motnr]>0)
+    {
+        intdirection[motnr] = 1;
+        absmotdir = actualmotdir[motnr];
+    }
+    else
+    {
+        intdirection[motnr] = 0;
+        absmotdir = -actualmotdir[motnr];
+    }
+    if (absmotdir <= 3264)
+        delay = 125000/absmotdir;
+    else if (absmotdir>5102)
+        delay = 24;
+    else if (absmotdir>4907)
+        delay = 25;
+    else if (absmotdir>4716)
+        delay = 26;
+    else if (absmotdir>4545)
+        delay = 27;
+    else if (absmotdir>4385)
+        delay = 28;
+    else if (absmotdir>4237)
+        delay = 29;
+    else if (absmotdir>4098)
+        delay = 30;
+    else if (absmotdir>3968)
+        delay = 31;
+    else if (absmotdir>3446)
+        delay = 32;
+    else if (absmotdir>3731)
+        delay = 33;
+    else if (absmotdir>3623)
+        delay = 34;
+    else if (absmotdir>3521)
+        delay = 35;
+    else if (absmotdir>3424)
+        delay = 36;
+    else if (absmotdir>3333)
+        delay = 37;
+    else if (absmotdir>3246)
+        delay = 38;
+    lastdelay[motnr] = delay;
+    PR2 = delay; //Load the Period register with the value ADCvalue
+    _LATB6 = intdirection[1];
     _LATB7=(1-_LATB7);          //Motor2 step
-IFS0bits.T2IF = 0; //Reset Timer2 interrupt flag and Return from ISR
+    IFS0bits.T2IF = 0; //Reset Timer2 interrupt flag and Return from ISR
 }
 
 void __attribute__((__interrupt__, __auto_psv__)) _T3Interrupt(void)
 {
    
 /* Interrupt Service Routine code goes here */
-    _LATB8 = int3direction;
-    PR3 = (mot3speed); //Load the Period register with the value ADCvalue
+    int motnr = 2;
+    int delay;
+    int change;
+    int absmotdir = 0;
+    change = actualmotdir[motnr] - motdir[motnr];
+    if ( change < maxChange && change > - maxChange)
+    {
+        actualmotdir[motnr] = motdir[motnr];
+    }
+    else
+    {
+        if (change>0)
+            actualmotdir[motnr] = actualmotdir[motnr] - (lastdelay[motnr] >> 3);
+        if (change<0)
+            actualmotdir[motnr] = actualmotdir[motnr] + (lastdelay[motnr] >> 3);
+    }
+    if (actualmotdir[motnr]>0)
+    {
+        intdirection[motnr] = 1;
+        absmotdir = actualmotdir[motnr];
+    }
+    else
+    {
+        intdirection[motnr] = 0;
+        absmotdir = -actualmotdir[motnr];
+    }
+    if (absmotdir <= 3264)
+        delay = 125000/absmotdir;
+    else if (absmotdir>5102)
+        delay = 24;
+    else if (absmotdir>4907)
+        delay = 25;
+    else if (absmotdir>4716)
+        delay = 26;
+    else if (absmotdir>4545)
+        delay = 27;
+    else if (absmotdir>4385)
+        delay = 28;
+    else if (absmotdir>4237)
+        delay = 29;
+    else if (absmotdir>4098)
+        delay = 30;
+    else if (absmotdir>3968)
+        delay = 31;
+    else if (absmotdir>3446)
+        delay = 32;
+    else if (absmotdir>3731)
+        delay = 33;
+    else if (absmotdir>3623)
+        delay = 34;
+    else if (absmotdir>3521)
+        delay = 35;
+    else if (absmotdir>3424)
+        delay = 36;
+    else if (absmotdir>3333)
+        delay = 37;
+    else if (absmotdir>3246)
+        delay = 38;
+    lastdelay[motnr] = delay;
+    PR3 = delay; //Load the Period register with the value ADCvalue
+    _LATB8 = intdirection[2];
     _LATB9=(1-_LATB9);          //Motor3 step
-IFS0bits.T3IF = 0; //Reset Timer2 interrupt flag and Return from ISR
+    IFS0bits.T3IF = 0; //Reset Timer2 interrupt flag and Return from ISR
 }
-
