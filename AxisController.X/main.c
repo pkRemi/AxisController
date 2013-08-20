@@ -19,9 +19,9 @@ int limitSpeed(int motnr);
 
 /* Default interrupt handler */
 void __attribute__((interrupt,no_auto_psv)) _DefaultInterrupt(void);
-void __attribute__((__interrupt__, __auto_psv__)) _T1Interrupt(void);
-void __attribute__((__interrupt__, __auto_psv__)) _T2Interrupt(void);
-void __attribute__((__interrupt__, __auto_psv__)) _T3Interrupt(void);
+void __attribute__((interrupt, auto_psv)) _T1Interrupt(void);
+void __attribute__((interrupt, auto_psv)) _T2Interrupt(void);
+void __attribute__((interrupt, auto_psv)) _T3Interrupt(void);
 
 /******************************************************************************/
 /* Global Variable Declaration                                                */
@@ -30,21 +30,20 @@ long int ADCvalue1=0;
 long int ADCvalue2=0;
 long int xvelocity=0;
 long int yvelocity=0;
-//long int mot1speed=0;
-//long int mot2speed=0;
-//long int mot3speed=0;
-long motdir[3] = {0,0,0};
-//float mot1direction=0;
-//float mot2direction=0;
-//float mot3direction=0;
-long actualmotdir[3]= {0,0,0};
-long lastdelay[3]= {0,0,0};
+volatile float motdir[3] = {0,0,0};
+//volatile long actualmotdir[3] = {0,0,0}; // may not be needed
+volatile float targetdelay[3] = {0,0,0};
+volatile float lastdelay[3]= {1250,1250,1250};
 float bbbspeed=0;
 float angle =0;
-int intdirection[3] = {0,0,0};
-int maxSpeed = 5000;
-int minSpeed = 30;
-int maxChange = 15;
+volatile int intdirection[3] = {0,0,0};
+volatile float maxSpeed = 4000;
+volatile float minSpeed = 200; // minSpeed is dependent on maxAcceleration (16MHz/64)/maxDelay
+//volatile int maxChange = 15;
+
+volatile float maxDelay = 1250;       // Max delay calculated from (16MHz/64)/sqrt(2*maxAcceleration)
+volatile float maxAcceleration = 20000; // Stepper motor acceleration in steps/(second^2)
+volatile float delaymultiplierR = 0;  // Constant for delay calculation = a/(F^2)
 /* i.e. uint16_t <variable_name>; */
 
 /******************************************************************************/
@@ -66,7 +65,7 @@ int16_t main(void)
     initSPI1();
 
     /* Local Variables */
-    long motdirtemp[3] = {0,0,0};
+    float motdirtemp[3] = {0,0,0};
     int i;
     int oorFlag = 0;
     unsigned int command = 0;
@@ -75,12 +74,12 @@ int16_t main(void)
     float angleOffset = 0;
     unsigned int *chptr;                // For receiving a float value
     bool spiInt = 0;
+    int simState = 0;
     while(1)
     {
         spiInt = IFS0bits.SPI1IF;
         if (spiInt)
         {
-            _LATB11 = 1;
             command = SPI1BUF;
             while(SPI1STATbits.SRXMPT); // Wait if Buffer is empty
             xSpeed = SPI1BUF;
@@ -92,7 +91,6 @@ int16_t main(void)
             while(SPI1STATbits.SRXMPT);
             *chptr++ = SPI1BUF;
             IFS0bits.SPI1IF = 0;
-            _LATB11 = 0;
         }
         if (command & 0b0100000000000000) // Check if bit14 is set (enable)
         {
@@ -118,88 +116,84 @@ int16_t main(void)
 
         while (!AD1CON1bits.DONE){}; // conversion done?
         ADCvalue2 = ADC1BUF0;  // yes then get ADC value
-//        maxChange = ADCvalue1/10;
+//        maxAcceleration = ADCvalue1;
+        delaymultiplierR = maxAcceleration/62500000000.0; // (16MHz/64)^2
 //        xvelocity = (ADCvalue1-512)*10;
 //        yvelocity = (ADCvalue2-512)*10;
+        _LATB11 = 1;
         xvelocity = xSpeed;
         yvelocity = ySpeed;
-        _LATB11 = 1;
+//        xvelocity = 30000;
+//        yvelocity = 30000;
+        /** Simulate going to max speed and reversing *************************/
+//        if (simState == 0) // initial state
+//        {
+//            xvelocity = 30000;
+//            yvelocity = 0;
+//            simState = 1;
+//        }
+//        else if (simState == 1 && lastdelay[2] <= 50.0) // reverse when max forward speed is reached
+//        {
+//            xvelocity = -30000;
+//            yvelocity = 0;
+//            simState = 2;
+//        }
+//        else if (simState == 2 && lastdelay[2] < 0.0)
+//        {
+//            simState = 3;
+//        }
+//        else if (simState == 3 && lastdelay[2] >= -50.0) // forward when max reverse speed is reached
+//        {
+//            xvelocity = 30000;
+//            yvelocity = 0;
+//            simState = 4;
+//        }
+//        else if (simState == 4 && lastdelay[2] > 0.0)
+//        {
+//            simState = 1;
+//        }
         bbbspeed = sqrt(xvelocity*xvelocity + yvelocity*yvelocity);  //Calculate the magnitude of the combined two vectors
-        _LATB10 = 1;
         angle = atan2(yvelocity,xvelocity) + angleOffset;  //Calculate the driving angle to balance the robot
-        _LATB10 = 0;
-
         motdirtemp[0] = bbbspeed*cos(1.570796327 -angle);  //mot1 at 0 degrees from x axis driving to 90 degree direction
-        _LATB10 = 1;
-
         motdirtemp[1]= bbbspeed*cos(3.665191429 - angle); //mot2 at 120 degree from x axis driving to 210 degree
-        _LATB10 = 0;
-
         motdirtemp[2] = bbbspeed*cos(5.759586532 - angle); //mot3 at 240 degrees from x axis driving to 330 degrees
-        _LATB11 =0;
 
         for (i=0;i<3;i++)
         {
             oorFlag = 0;
             if (motdirtemp[i]>0)
             {
-                if (motdirtemp[i] > 5208)     //maxSpeed
+                if (motdirtemp[i] > maxSpeed)     //maxSpeed
                 {
-                    motdir[i] = 5208;
+                    motdir[i] = maxSpeed;
                     oorFlag = 1;
                 }
-                else if (motdirtemp[i] < 60)  //minSpeed (step frequency)
+                else if (motdirtemp[i] < minSpeed)  //minSpeed (step frequency)
                 {
-                    motdir[i] = 60;
+                    motdir[i] = minSpeed;
                     oorFlag = 1;
                 }
             }
             else
             {
-                if (motdirtemp[i] < -5208)
+                if (motdirtemp[i] < -maxSpeed)
                 {
-                    motdir[i] = -5208;
+                    motdir[i] = -maxSpeed;
                     oorFlag = 1;
                 }
-                else if (motdirtemp[i] > -60)
+                else if (motdirtemp[i] > -minSpeed)
                 {
-                    motdir[i] = -60;
+                    motdir[i] = -minSpeed;
                     oorFlag = 1;
                 }
             }
             if (!oorFlag)
                 motdir[i] = motdirtemp[i];
+            targetdelay[i] = 250000.0/motdir[i];   /** Change speed to delay **/
         }
-//        mot1speed = 3200/(fabs(mot1direction));         //Calculate appropriate driving speed so that
-//        mot2speed = 3200/(fabs(mot2direction));         //driving speeds never go too slow and so that
-//        mot3speed = 3200/(fabs(mot3direction));         //and so that motor is fast enough
-//
-//        if(mot1direction<0)
-//        {
-//            int1direction=0;
-//        }
-//        else
-//        {
-//            int1direction=1;
-//        }
-//
-//        if(mot2direction<0)
-//        {
-//            int2direction=0;
-//        }
-//        else
-//        {
-//            int2direction=1;
-//        }
-//
-//        if(mot3direction<0)
-//        {
-//            int3direction=0;
-//        }
-//        else
-//        {
-//            int3direction=1;
-//        }
+    _LATB11 = 0;
+
+
 
     }
 }
@@ -216,209 +210,339 @@ void __attribute__((interrupt,no_auto_psv)) _DefaultInterrupt(void)
 }
 
 
-void __attribute__((__interrupt__, __auto_psv__)) _T1Interrupt(void)
+void __attribute__((interrupt, auto_psv)) _T1Interrupt(void)
 {
 /* Interrupt Service Routine code goes here */
     int motnr = 0;
-    int delay;
-    int change;
-    int absmotdir = 0;
+    float delay;
+    int delaytemp;
+    float change;
+    _LATB5 = 1;         //Motor1 step
+    change = targetdelay[motnr] - lastdelay[motnr];
 
-    change = actualmotdir[motnr] - motdir[motnr];
-    if ( change < maxChange && change > - maxChange)
-    {
-        actualmotdir[motnr] = motdir[motnr];
-    }
-    else
-    {
-        if (change>0)
-            actualmotdir[motnr] = actualmotdir[motnr] - (lastdelay[motnr] >> 3);
-        if (change<0)
-            actualmotdir[motnr] = actualmotdir[motnr] + (lastdelay[motnr] >> 3);
-    }
-    if (actualmotdir[motnr]>0)
+    if (targetdelay[motnr] > 0 && lastdelay[motnr] > 0) // both positive cw
     {
         intdirection[motnr] = 1;
-        absmotdir = actualmotdir[motnr];
+        if (change < 0)                                 //change negative
+        {
+            // accelerate cw
+            delay = lastdelay[motnr] * (1 - delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+            if (delay < targetdelay[motnr])
+                delay = targetdelay[motnr];
+        }
+        else
+        {
+            // decelerate cw
+            delay = lastdelay[motnr] * (1 + delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+            if (delay > targetdelay[motnr])
+                delay = targetdelay[motnr];
+        }
     }
-    else
+    else if(targetdelay[motnr] < 0 && lastdelay[motnr] < 0) //both negative ccw
     {
         intdirection[motnr] = 0;
-        absmotdir = -actualmotdir[motnr];
+
+        if (change > 0)
+        {
+            // accelerate ccw
+            delay = lastdelay[motnr] * (1 - delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+            if (delay > targetdelay[motnr])
+                delay = targetdelay[motnr];
+        }
+        else
+        {
+            // decelerate ccw
+            delay = lastdelay[motnr] * (1 + delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+            if (delay < targetdelay[motnr])
+                delay = targetdelay[motnr];
+        }
     }
-    if (absmotdir <= 3264)
-        delay = 125000/absmotdir;
-    else if (absmotdir>5102)
-        delay = 24;
-    else if (absmotdir>4907)
-        delay = 25;
-    else if (absmotdir>4716)
-        delay = 26;
-    else if (absmotdir>4545)
-        delay = 27;
-    else if (absmotdir>4385)
-        delay = 28;
-    else if (absmotdir>4237)
-        delay = 29;
-    else if (absmotdir>4098)
-        delay = 30;
-    else if (absmotdir>3968)
-        delay = 31;
-    else if (absmotdir>3446)
-        delay = 32;
-    else if (absmotdir>3731)
-        delay = 33;
-    else if (absmotdir>3623)
-        delay = 34;
-    else if (absmotdir>3521)
-        delay = 35;
-    else if (absmotdir>3424)
-        delay = 36;
-    else if (absmotdir>3333)
-        delay = 37;
-    else if (absmotdir>3246)
-        delay = 38;
+
+    else
+    {
+        // decelerate and switch direction
+        delay = lastdelay[motnr] * (1 + delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+        if (lastdelay[motnr] >0)
+        {
+            // Decelerating cw
+            if (delay > maxDelay)
+            {
+                delay = -maxDelay;      // Change direction if going to slow
+                intdirection[motnr] = 0; // ccw
+            }
+
+        }
+        else
+        {
+            // Decelerating ccw
+            if (delay < -maxDelay)
+            {
+                delay = maxDelay;      // Change direction if going to slow
+                intdirection[motnr] = 1; // cw
+            }
+        }
+
+    }
     lastdelay[motnr] = delay;
-    PR1 = delay; //Load the Period register with the value ADCvalue
+    if (intdirection[motnr])
+        delaytemp = delay;  // Change from float to int
+    else
+        delaytemp = -delay;
+    PR1 = delaytemp; //Load the Period register with the delay
     _LATA4 = intdirection[0];
-    _LATB5 =(1-_LATB5);         //Motor1 step
+    _LATB5 = 0;         //Motor1 end step
     IFS0bits.T1IF = 0; //Reset Timer1 interrupt flag and Return from ISR
 }
 
-void __attribute__((__interrupt__, __auto_psv__)) _T2Interrupt(void)
+void __attribute__((interrupt, auto_psv)) _T2Interrupt(void)
 {
    
 /* Interrupt Service Routine code goes here */
     int motnr = 1;
-    int delay;
-    int change;
-    int absmotdir = 0;
-    change = actualmotdir[motnr] - motdir[motnr];
-    if ( change < maxChange && change > - maxChange)
-    {
-        actualmotdir[motnr] = motdir[motnr];
-    }
-    else
-    {
-        if (change>0)
-            actualmotdir[motnr] = actualmotdir[motnr] - (lastdelay[motnr] >> 3);
-        if (change<0)
-            actualmotdir[motnr] = actualmotdir[motnr] + (lastdelay[motnr] >> 3);
-    }
-    if (actualmotdir[motnr]>0)
+    float delay;
+    int delaytemp;
+    float change;
+    _LATB7 = 1;         //Motor2 step
+    change = targetdelay[motnr] - lastdelay[motnr];
+
+    if (targetdelay[motnr] > 0 && lastdelay[motnr] > 0) // both positive cw
     {
         intdirection[motnr] = 1;
-        absmotdir = actualmotdir[motnr];
+        if (change < 0)                                 //change negative
+        {
+            // accelerate cw
+            delay = lastdelay[motnr] * (1 - delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+            if (delay < targetdelay[motnr])
+                delay = targetdelay[motnr];
+        }
+        else
+        {
+            // decelerate cw
+            delay = lastdelay[motnr] * (1 + delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+            if (delay > targetdelay[motnr])
+                delay = targetdelay[motnr];
+        }
     }
-    else
+    else if(targetdelay[motnr] < 0 && lastdelay[motnr] < 0) //both negative ccw
     {
         intdirection[motnr] = 0;
-        absmotdir = -actualmotdir[motnr];
+
+        if (change > 0)
+        {
+            // accelerate ccw
+            delay = lastdelay[motnr] * (1 - delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+            if (delay > targetdelay[motnr])
+                delay = targetdelay[motnr];
+        }
+        else
+        {
+            // decelerate ccw
+            delay = lastdelay[motnr] * (1 + delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+            if (delay < targetdelay[motnr])
+                delay = targetdelay[motnr];
+        }
     }
-    if (absmotdir <= 3264)
-        delay = 125000/absmotdir;
-    else if (absmotdir>5102)
-        delay = 24;
-    else if (absmotdir>4907)
-        delay = 25;
-    else if (absmotdir>4716)
-        delay = 26;
-    else if (absmotdir>4545)
-        delay = 27;
-    else if (absmotdir>4385)
-        delay = 28;
-    else if (absmotdir>4237)
-        delay = 29;
-    else if (absmotdir>4098)
-        delay = 30;
-    else if (absmotdir>3968)
-        delay = 31;
-    else if (absmotdir>3446)
-        delay = 32;
-    else if (absmotdir>3731)
-        delay = 33;
-    else if (absmotdir>3623)
-        delay = 34;
-    else if (absmotdir>3521)
-        delay = 35;
-    else if (absmotdir>3424)
-        delay = 36;
-    else if (absmotdir>3333)
-        delay = 37;
-    else if (absmotdir>3246)
-        delay = 38;
+
+    else
+    {
+        // decelerate and switch direction
+        delay = lastdelay[motnr] * (1 + delaymultiplierR * lastdelay[motnr] * lastdelay[motnr]);
+        if (lastdelay[motnr] >0)
+        {
+            // Decelerating cw
+            if (delay > maxDelay)
+            {
+                delay = -maxDelay;      // Change direction if going to slow
+                intdirection[motnr] = 0; // ccw
+            }
+
+        }
+        else
+        {
+            // Decelerating ccw
+            if (delay < -maxDelay)
+            {
+                delay = maxDelay;      // Change direction if going to slow
+                intdirection[motnr] = 1; // cw
+            }
+        }
+
+    }
     lastdelay[motnr] = delay;
-    PR2 = delay; //Load the Period register with the value ADCvalue
+    if (intdirection[motnr])
+        delaytemp = delay;  // Change from float to int
+    else
+        delaytemp = -delay;
+    PR2 = delaytemp; //Load the Period register with the delay
     _LATB6 = intdirection[1];
-    _LATB7=(1-_LATB7);          //Motor2 step
+    _LATB7 = 0;          //Motor2 end step
     IFS0bits.T2IF = 0; //Reset Timer2 interrupt flag and Return from ISR
 }
 
-void __attribute__((__interrupt__, __auto_psv__)) _T3Interrupt(void)
+void __attribute__((interrupt, auto_psv)) _T3Interrupt(void)
 {
-   
+
 /* Interrupt Service Routine code goes here */
     int motnr = 2;
-    int delay;
-    int change;
-    int absmotdir = 0;
-    change = actualmotdir[motnr] - motdir[motnr];
-    if ( change < maxChange && change > - maxChange)
+    float delay;
+    int delaytemp;
+    float change;
+    _LATB9 = 1;         //Motor3 step
+_LATB10 = 1;
+    change = targetdelay[2] - lastdelay[2];
+_LATB10 = 0;
+
+    if (targetdelay[2] > 0 && lastdelay[2] > 0) // both positive cw
     {
-        actualmotdir[motnr] = motdir[motnr];
+        intdirection[2] = 1;
+        if (change < 0)                                 //change negative
+        {
+            // accelerate cw
+_LATB10 = 1;
+            delay = lastdelay[2] * (1 - delaymultiplierR * lastdelay[2] * lastdelay[2]);
+_LATB10 = 0;
+            if (delay < targetdelay[2])
+                delay = targetdelay[2];
+        }
+        else
+        {
+            // decelerate cw
+_LATB10 = 1;
+            delay = lastdelay[2] * (1 + delaymultiplierR * lastdelay[2] * lastdelay[2]);
+_LATB10 = 0;
+            if (delay > targetdelay[2])
+                delay = targetdelay[2];
+        }
     }
+    else if(targetdelay[2] < 0 && lastdelay[2] < 0) //both negative ccw
+    {
+        intdirection[2] = 0;
+
+        if (change > 0)
+        {
+            // accelerate ccw
+_LATB10 = 1;
+            delay = lastdelay[2] * (1 - delaymultiplierR * lastdelay[2] * lastdelay[2]);
+_LATB10 = 0;
+            if (delay > targetdelay[2])
+                delay = targetdelay[2];
+        }
+        else
+        {
+            // decelerate ccw
+_LATB10 = 1;
+            delay = lastdelay[2] * (1 + delaymultiplierR * lastdelay[2] * lastdelay[2]);
+_LATB10 = 0;
+            if (delay < targetdelay[2])
+                delay = targetdelay[2];
+        }
+    }
+
     else
     {
-        if (change>0)
-            actualmotdir[motnr] = actualmotdir[motnr] - (lastdelay[motnr] >> 3);
-        if (change<0)
-            actualmotdir[motnr] = actualmotdir[motnr] + (lastdelay[motnr] >> 3);
+        // decelerate and switch direction
+_LATB10 = 1;
+        delay = lastdelay[2] * (1 + delaymultiplierR * lastdelay[2] * lastdelay[2]);
+_LATB10 = 0;
+        if (lastdelay[2] >0)
+        {
+            // Decelerating cw
+            if (delay > maxDelay)
+            {
+                delay = -maxDelay;      // Change direction if going to slow
+                intdirection[2] = 0; // ccw
+            }
+
+        }
+        else
+        {
+            // Decelerating ccw
+            if (delay < -maxDelay)
+            {
+                delay = maxDelay;      // Change direction if going to slow
+                intdirection[2] = 1; // cw
+            }
+        }
+
     }
-    if (actualmotdir[motnr]>0)
-    {
-        intdirection[motnr] = 1;
-        absmotdir = actualmotdir[motnr];
-    }
+_LATB10 = 1;
+    lastdelay[2] = delay;
+_LATB10 = 0;
+    if (intdirection[2])
+        delaytemp = delay;  // Change from float to int
     else
-    {
-        intdirection[motnr] = 0;
-        absmotdir = -actualmotdir[motnr];
-    }
-    if (absmotdir <= 3264)
-        delay = 125000/absmotdir;
-    else if (absmotdir>5102)
-        delay = 24;
-    else if (absmotdir>4907)
-        delay = 25;
-    else if (absmotdir>4716)
-        delay = 26;
-    else if (absmotdir>4545)
-        delay = 27;
-    else if (absmotdir>4385)
-        delay = 28;
-    else if (absmotdir>4237)
-        delay = 29;
-    else if (absmotdir>4098)
-        delay = 30;
-    else if (absmotdir>3968)
-        delay = 31;
-    else if (absmotdir>3446)
-        delay = 32;
-    else if (absmotdir>3731)
-        delay = 33;
-    else if (absmotdir>3623)
-        delay = 34;
-    else if (absmotdir>3521)
-        delay = 35;
-    else if (absmotdir>3424)
-        delay = 36;
-    else if (absmotdir>3333)
-        delay = 37;
-    else if (absmotdir>3246)
-        delay = 38;
-    lastdelay[motnr] = delay;
-    PR3 = delay; //Load the Period register with the value ADCvalue
+        delaytemp = -delay;
+    PR3 = delaytemp; //Load the Period register with the delay
     _LATB8 = intdirection[2];
-    _LATB9=(1-_LATB9);          //Motor3 step
+    _LATB9=0;          //Motor3 end step
     IFS0bits.T3IF = 0; //Reset Timer2 interrupt flag and Return from ISR
 }
+//void __attribute__((interrupt, auto_psv)) _T3Interrupt(void)
+//{
+//
+///* Interrupt Service Routine code goes here */
+//    int motnr = 2;
+//    int delay;
+//    int change;
+//    int absmotdir = 0;
+//    _LATB9=1;          //Motor3 step
+//    change = actualmotdir[motnr] - motdir[motnr];
+//    if ( change < maxChange && change > - maxChange)
+//    {
+//        actualmotdir[motnr] = motdir[motnr];
+//    }
+//    else
+//    {
+//        if (change>0)
+//            actualmotdir[motnr] = actualmotdir[motnr] - (lastdelay[motnr] >> 4);
+//        if (change<0)
+//            actualmotdir[motnr] = actualmotdir[motnr] + (lastdelay[motnr] >> 4);
+//    }
+//    if (actualmotdir[motnr]>0)
+//    {
+//        intdirection[motnr] = 1;
+//        absmotdir = actualmotdir[motnr];
+//    }
+//    else
+//    {
+//        intdirection[motnr] = 0;
+//        absmotdir = -actualmotdir[motnr];
+//    }
+//    if (absmotdir <= 3264)
+//        delay = 125000/absmotdir;
+//    else if (absmotdir>5102)
+//        delay = 24;
+//    else if (absmotdir>4907)
+//        delay = 25;
+//    else if (absmotdir>4716)
+//        delay = 26;
+//    else if (absmotdir>4545)
+//        delay = 27;
+//    else if (absmotdir>4385)
+//        delay = 28;
+//    else if (absmotdir>4237)
+//        delay = 29;
+//    else if (absmotdir>4098)
+//        delay = 30;
+//    else if (absmotdir>3968)
+//        delay = 31;
+//    else if (absmotdir>3446)
+//        delay = 32;
+//    else if (absmotdir>3731)
+//        delay = 33;
+//    else if (absmotdir>3623)
+//        delay = 34;
+//    else if (absmotdir>3521)
+//        delay = 35;
+//    else if (absmotdir>3424)
+//        delay = 36;
+//    else if (absmotdir>3333)
+//        delay = 37;
+//    else if (absmotdir>3246)
+//        delay = 38;
+//    lastdelay[motnr] = delay;
+//    PR3 = delay; //Load the Period register with the value ADCvalue
+//    _LATB8 = intdirection[2];
+//    _LATB9=0;          //Motor3 end step
+//    IFS0bits.T3IF = 0; //Reset Timer2 interrupt flag and Return from ISR
+//}
