@@ -66,7 +66,7 @@ TMR1 = 0x00; //Clear contents of the timer register
 PR1 = 62500; //Load the Period register with the value 62500
 IPC0bits.T1IP = 0x01; //Setup Timer1 interrupt for desired priority level
 // (This example assigns level 1 priority)
-T1CONbits.TCKPS =2; //Prescale 1:64
+T1CONbits.TCKPS =1; //Prescale 1:8
 IFS0bits.T1IF = 0; //Clear the Timer1 interrupt status flag
 IEC0bits.T1IE = 1; //Enable Timer1 interrupts
 T1CONbits.TON = 1; //Start Timer1 with prescaler settings at 1:1 and
@@ -87,7 +87,7 @@ TMR2 = 0x00; //Clear contents of the timer register
 PR2 = 62500; //Load the Period register with the value 62500
 IPC1bits.T2IP = 0x01; //Setup Timer1 interrupt for desired priority level
 // (This example assigns level 1 priority)
-T2CONbits.TCKPS =2; //Prescale 1:64
+T2CONbits.TCKPS =1; //Prescale 1:8
 IFS0bits.T2IF = 0; //Clear the Timer2 interrupt status flag
 IEC0bits.T2IE = 1; //Enable Timer2 interrupts
 T2CONbits.TON = 1; //Start Timer2 with prescaler settings at 1:1 and
@@ -108,7 +108,7 @@ TMR3 = 0x00; //Clear contents of the timer register
 PR3 = 65000; //Load the Period register with the value 62500
 IPC2bits.T3IP = 0x01; //Setup Timer3 interrupt for desired priority level
 // (This example assigns level 1 priority)
-T3CONbits.TCKPS =2; //Prescale 1:64
+T3CONbits.TCKPS =1; //Prescale 1:8
 IFS0bits.T3IF = 0; //Clear the Timer3 interrupt status flag
 IEC0bits.T3IE = 1; //Enable Timer3 interrupts
 T3CONbits.TON = 1; //Start Timer3 with prescaler settings at 1:1 and
