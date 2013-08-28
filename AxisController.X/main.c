@@ -37,7 +37,7 @@ volatile long lastdelay[3]= {11585,11585,11585};
 float bbbspeed=0;
 float angle =0;
 volatile int intdirection[3] = {0,0,0};
-volatile float maxSpeed = 5100;
+volatile float maxSpeed = 8000;
 volatile float minSpeed = 200; // minSpeed is dependent on maxAcceleration (16MHz/8)/maxDelay
 volatile long long ldtimes[3] = {0,0,0}; // maxDelay * 2^28
 //volatile int maxChange = 15;
@@ -79,20 +79,22 @@ int16_t main(void)
     while(1)
     {
         spiInt = IFS0bits.SPI1IF;
-        if (spiInt)
+        while(!spiInt)
         {
-            command = SPI1BUF;
-            while(SPI1STATbits.SRXMPT); // Wait if Buffer is empty
-            xSpeed = SPI1BUF;
-            while(SPI1STATbits.SRXMPT);
-            ySpeed = SPI1BUF;
-            chptr = (unsigned char *) &angleOffset;  // For receiving a float value
-            while(SPI1STATbits.SRXMPT);
-            *chptr++ = SPI1BUF;
-            while(SPI1STATbits.SRXMPT);
-            *chptr++ = SPI1BUF;
-            IFS0bits.SPI1IF = 0;
+            spiInt = IFS0bits.SPI1IF;
         }
+        command = SPI1BUF;
+        while(SPI1STATbits.SRXMPT); // Wait if Buffer is empty
+        xSpeed = SPI1BUF;
+        while(SPI1STATbits.SRXMPT);
+        ySpeed = SPI1BUF;
+        chptr = (unsigned char *) &angleOffset;  // For receiving a float value
+        while(SPI1STATbits.SRXMPT);
+        *chptr++ = SPI1BUF;
+        while(SPI1STATbits.SRXMPT);
+        *chptr++ = SPI1BUF;
+        IFS0bits.SPI1IF = 0;
+
         if (command & 0b0100000000000000) // Check if bit14 is set (enable)
         {
             _LATB4 = 1; // ENABLE STEPPER
